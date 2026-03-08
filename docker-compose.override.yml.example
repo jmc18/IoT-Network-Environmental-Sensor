@@ -1,0 +1,13 @@
+# Copy to docker-compose.override.yml for local development overrides
+# cp docker-compose.override.yml.example docker-compose.override.yml
+
+services:
+  iot.functions:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DOTNET_USE_POLLING_FILE_WATCHER=true
+    ports:
+      - "7071:80"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${LOCALAPPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
