@@ -1,0 +1,33 @@
+Azure Function App configuration checklist
+==========================================
+
+Required local / App Settings
+-----------------------------
+- FUNCTIONS_WORKER_RUNTIME = dotnet-isolated (Function App stack: .NET 10 isolated)
+- AzureWebJobsStorage = Azure Storage connection string (Functions host dependency)
+
+Cosmos DB (bind as nested config; in Azure Portal use double underscore, e.g. Cosmos__ConnectionString)
+- Cosmos:ConnectionString — SQL API account connection string
+- Cosmos:DatabaseName — optional (default iot-network)
+- Cosmos:TelemetryContainerName — optional (default telemetry)
+- Cosmos:NodeDataIndexContainerName — optional (default nodeDataIndex)
+
+Containers use partition key path /nodeId. The app creates the database and containers on first use if missing.
+
+Azure SignalR Service
+- AzureSignalRConnectionString — primary connection string from the SignalR resource
+  If omitted or empty locally, telemetry ingest still runs but hub notifications are skipped.
+
+Browser CORS (optional in config; also set allowed origins on the Function App in Portal for production)
+- Cors:AllowedOrigins — comma-separated list (e.g. https://myapp.azurestaticapps.net)
+
+HTTP routes (default Functions /api prefix)
+-------------------------------------------
+POST   /api/nodes/{nodeId}/telemetry          — Authorization: function key (ingest)
+GET    /api/nodes
+GET    /api/nodes/{nodeId}/readings?from=&to=&maxItems=&continuationToken=
+GET    /api/nodes/{nodeId}/available-dates
+GET|POST /api/signalr/negotiate/{nodeId}     — anonymous; use for SignalR negotiate
+
+Hub name: telemetry
+Client subscribes to method name: telemetryUpdated (payload shape matches TelemetryUpdatedPayload JSON).
