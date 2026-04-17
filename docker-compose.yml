@@ -1,0 +1,55 @@
+# IoT Network — API (ASP.NET Core) + PostgreSQL for local development.
+# Usage (repo root):  docker compose up -d --build
+# Optional: copy .env.example to .env to override ports.
+
+name: iotnetwork
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: iotnetwork-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: iot
+      POSTGRES_PASSWORD: iot
+      POSTGRES_DB: iotnetwork
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - iotnetwork_pg:/var/lib/postgresql/data
+    networks:
+      - iotnetwork
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iot -d iotnetwork"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: src/IoTNetwork.Api/Dockerfile
+    container_name: iotnetwork-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-5099}:5099"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=iotnetwork;Username=iot;Password=iot"
+      Ingest__ApiKey: "docker-dev-ingest-key"
+      Cors__AllowedOrigins: "http://localhost:5064,http://localhost:5099,https://localhost:7296,http://127.0.0.1:5099"
+      Seed__EnableDevData: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - iotnetwork
+
+networks:
+  iotnetwork:
+    driver: bridge
+
+volumes:
+  iotnetwork_pg:
