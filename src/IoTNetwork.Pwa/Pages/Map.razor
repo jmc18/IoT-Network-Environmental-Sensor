@@ -1,0 +1,139 @@
+@page "/map"
+@inject IIoTTelemetryApi Api
+@inject IJSRuntime Js
+
+<PageTitle>Map</PageTitle>
+
+<div class="flex min-h-0 flex-1 flex-col gap-3 p-3 pb-24 md:p-4 md:pb-4">
+    <header class="flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">Live map</h1>
+        <p class="text-sm text-slate-600 md:text-base">OpenStreetMap centered on the latest reading with coordinates for the selected node.</p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label class="text-sm font-medium text-slate-700" for="node">Node</label>
+            <select id="node" class="min-h-12 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-base text-slate-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" value="@_selectedNode" @onchange="OnSelectChanged">
+                @foreach (var n in _nodes)
+                {
+                    <option value="@n">@n</option>
+                }
+            </select>
+            <button type="button" class="inline-flex min-h-12 items-center justify-center rounded-xl bg-brand-600 px-4 text-base font-semibold text-white shadow-sm active:bg-brand-600/90" @onclick="RefreshAsync">Refresh</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200">@_error</p>
+        }
+    </header>
+
+    <div id="map-host" class="min-h-[45vh] w-full flex-1 overflow-hidden rounded-2xl bg-slate-200 shadow-inner ring-1 ring-slate-300 md:min-h-[55vh]"></div>
+
+    @if (_last is not null)
+    {
+        <section class="grid grid-cols-2 gap-2 rounded-2xl bg-white p-3 text-sm shadow-sm ring-1 ring-slate-200 sm:grid-cols-3 md:gap-3 md:p-4 md:text-base">
+            <div><span class="text-slate-500">Temp</span><div class="font-semibold">@Format(_last.Temperature, "°C")</div></div>
+            <div><span class="text-slate-500">RH</span><div class="font-semibold">@Format(_last.Humidity, "%")</div></div>
+            <div class="col-span-2 sm:col-span-1"><span class="text-slate-500">CO₂</span><div class="font-semibold">@Format(_last.Co2, "ppm")</div></div>
+            <div><span class="text-slate-500">Noise</span><div class="font-semibold">@Format(_last.NoiseLevel, "dB")</div></div>
+            <div class="col-span-2"><span class="text-slate-500">Time (UTC)</span><div class="font-semibold">@_last.TimestampUtc.ToString("u")</div></div>
+        </section>
+    }
+</div>
+
+@code {
+    private readonly List<string> _nodes = [];
+    private string? _selectedNode;
+    private TelemetryReadingDto? _last;
+    private string? _error;
+    private Guid? _mapBoundReadingId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var nodes = await Api.GetNodesAsync();
+            _nodes.Clear();
+            _nodes.AddRange(nodes);
+            _selectedNode = _nodes.FirstOrDefault();
+            await LoadLatestAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await TryMapAsync();
+    }
+
+    private async Task OnSelectChanged(ChangeEventArgs e)
+    {
+        _selectedNode = e.Value?.ToString();
+        _mapBoundReadingId = null;
+        _error = null;
+        try
+        {
+            await LoadLatestAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        _error = null;
+        _mapBoundReadingId = null;
+        try
+        {
+            var nodes = await Api.GetNodesAsync();
+            _nodes.Clear();
+            _nodes.AddRange(nodes);
+            if (_selectedNode is null || !_nodes.Contains(_selectedNode))
+            {
+                _selectedNode = _nodes.FirstOrDefault();
+            }
+
+            await LoadLatestAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task LoadLatestAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_selectedNode))
+        {
+            _last = null;
+            return;
+        }
+
+        var to = DateTime.UtcNow;
+        var from = to.AddDays(-7);
+        var items = await Api.GetReadingsAsync(_selectedNode, from, to, 1);
+        _last = items.FirstOrDefault();
+    }
+
+    private async Task TryMapAsync()
+    {
+        if (_last?.Latitude is null || _last.Longitude is null)
+        {
+            return;
+        }
+
+        if (_mapBoundReadingId == _last.Id)
+        {
+            return;
+        }
+
+        await Js.InvokeVoidAsync("iotMapDestroy", "map-host");
+        await Js.InvokeVoidAsync("iotMapInit", "map-host", _last.Latitude, _last.Longitude, 13);
+        _mapBoundReadingId = _last.Id;
+    }
+
+    private static string Format(double? v, string suffix) =>
+        v.HasValue ? $"{v.Value:0.#}{suffix}" : "—";
+}

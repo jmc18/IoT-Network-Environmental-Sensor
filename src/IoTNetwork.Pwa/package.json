@@ -1,0 +1,16 @@
+{
+  "name": "iotnetwork-pwa",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "css:build": "npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css",
+    "css:release": "npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css --minify",
+    "css:watch": "npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css --watch",
+    "dev:pwa": "concurrently -k -n wasm,tailwind \"dotnet watch --project ./IoTNetwork.Pwa.csproj\" \"npm run css:watch\""
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "concurrently": "^9.1.2",
+    "tailwindcss": "^4.2.2"
+  }
+}

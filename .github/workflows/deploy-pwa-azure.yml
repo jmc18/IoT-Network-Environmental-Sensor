@@ -1,0 +1,57 @@
+# Deploy Blazor WebAssembly PWA to Azure Static Web Apps.
+# Create a Static Web App in Azure Portal, then add repository secret:
+#   AZURE_STATIC_WEB_APPS_API_TOKEN  (Deployment token from SWA → Manage deployment token)
+# Pattern aligned with local Tailwind setup under D:\JMC\A-PG (VS Tailwind extension + @tailwindcss/cli).
+
+name: Deploy IoT PWA to Azure Static Web Apps
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/IoTNetwork.Pwa/**'
+      - '.github/workflows/deploy-pwa-azure.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_and_deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    name: Build and deploy PWA
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Tailwind CLI dependencies
+        working-directory: src/IoTNetwork.Pwa
+        run: npm ci
+
+      - name: Build Tailwind CSS
+        working-directory: src/IoTNetwork.Pwa
+        run: npm run css:release
+
+      - name: Publish Blazor WASM
+        run: dotnet publish src/IoTNetwork.Pwa/IoTNetwork.Pwa.csproj --configuration Release --output pwa-publish
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: pwa-publish/wwwroot
+          api_location: ''
+          output_location: ''
+          skip_app_build: true

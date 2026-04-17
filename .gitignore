@@ -138,34 +138,9 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# ===== .NET / Azure Functions / IoT Backend =====
-# Build outputs
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-publish/
-artifacts/
-
-# Visual Studio
-.vs/
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
-# Local settings (secrets)
-local.settings.json
-**/local.settings.json
-
-# Docker
-docker/.env
-docker-compose.override.yml
-
-# NuGet
-*.nupkg
-**/packages/*
-!**/packages/build/
-
-# Rider / JetBrains
-.idea/
-*.sln.iml
+# Local Docker Compose overrides (keep .env.example in repo)
+.env
+.vs
+bin
+obj
+publish

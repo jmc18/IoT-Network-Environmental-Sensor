@@ -1,64 +1,55 @@
-# IoT Network Backend - Docker Compose (like A_PG)
-# Usage: docker compose up -d --build
-# Functions API: http://localhost:7071
-# Cosmos Data Explorer: https://localhost:8081
-# Azurite Blob: http://localhost:10000
+# IoT Network — API (ASP.NET Core) + PostgreSQL for local development.
+# Usage (repo root):  docker compose up -d --build
+# Optional: copy .env.example to .env to override ports.
+
+name: iotnetwork
 
 services:
-  iot.functions:
-    image: ${DOCKER_REGISTRY-}iot-network-functions
+  postgres:
+    image: postgres:16-alpine
+    container_name: iotnetwork-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: iot
+      POSTGRES_PASSWORD: iot
+      POSTGRES_DB: iotnetwork
+    ports:
+      - "${POSTGRES_PORT:-55432}:5432"
+    volumes:
+      - iotnetwork_pg:/var/lib/postgresql/data
+    networks:
+      - iotnetwork
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iot -d iotnetwork"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  api:
     build:
       context: .
-      dockerfile: IoTBackend/Functions/Dockerfile
-    container_name: iot-network-functions
-    ports:
-      - "7071:80"
-    depends_on:
-      - cosmosdb
-      - azurite
-    environment:
-      AzureWebJobsStorage: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;"
-      CosmosDb__ConnectionString: "AccountEndpoint=https://cosmosdb:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==;DisableServerCertificateValidation=True;"
-      IOT_INGEST_API_KEY: "dev-api-key-change-in-production"
-      FUNCTIONS_WORKER_RUNTIME: "dotnet-isolated"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
-  cosmosdb:
-    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
-    container_name: azure-cosmosdb-emulator
-    hostname: cosmosdb
+      dockerfile: src/IoTNetwork.Api/Dockerfile
+    container_name: iotnetwork-api
     restart: unless-stopped
-    mem_limit: 4GB
-    tty: true
     ports:
-      - "8081:8081"
-      - "8900:8900"
-      - "8901:8901"
-      - "8902:8902"
-      - "10250:10250"
-      - "10251:10251"
-      - "10252:10252"
-      - "10253:10253"
-      - "10254:10254"
-      - "10255:10255"
-      - "10256:10256"
-      - "10350:10350"
+      - "${API_PORT:-5099}:5099"
     environment:
-      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: "3"
-      AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: "false"
-      AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: "172.16.238.2"
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=iotnetwork;Username=iot;Password=iot"
+      Ingest__ApiKey: "docker-dev-ingest-key"
+      Cors__AllowedOrigins: "http://localhost:5064,http://localhost:5099,https://localhost:7296,http://127.0.0.1:5099"
+      Seed__EnableDevData: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - iotnetwork
 
-  azurite:
-    image: mcr.microsoft.com/azure-storage/azurite:latest
-    container_name: azurite
-    ports:
-      - "10000:10000"
-      - "10001:10001"
-      - "10002:10002"
-    volumes:
-      - azurite-data:/data
-    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0"
+networks:
+  iotnetwork:
+    driver: bridge
 
 volumes:
-  azurite-data:
+  iotnetwork_pg:
