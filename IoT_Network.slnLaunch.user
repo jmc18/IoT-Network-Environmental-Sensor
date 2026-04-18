@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "PWA & API",
+    "Projects": [
+      {
+        "Path": "src\\IoTNetwork.Pwa\\IoTNetwork.Pwa.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "docker-compose.dcproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

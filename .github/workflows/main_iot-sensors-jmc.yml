@@ -29,12 +29,12 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: 'Resolve Project Dependencies Using Dotnet'
-        shell: bash
+      - name: Restore and build solution (IoT_Network.sln)
         run: |
-          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          dotnet build --configuration Release --output ./output
-          popd
+          dotnet restore IoT_Network.sln
+          dotnet build IoT_Network.sln -c Release --no-restore
+      - name: Publish Azure Functions (src/Backend)
+        run: dotnet publish src/Backend/Backend.csproj -c Release -o ./output --no-build
       
       - name: Login to Azure
         uses: azure/login@v2

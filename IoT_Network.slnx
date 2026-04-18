@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Backend/Backend.csproj" Id="1a54c3fc-900b-aaea-3502-101ef4241700" />
+    <Project Path="src/IoTNetwork.Core/IoTNetwork.Core.csproj" Id="d6b261ea-c947-4a27-80b2-5333e3f2e764" />
+    <Project Path="src/IoTNetwork.Infrastructure/IoTNetwork.Infrastructure.csproj" Id="3e98b221-6dae-4b97-ba53-600e86dbf76c" />
+    <Project Path="src/IoTNetwork.Api/IoTNetwork.Api.csproj" Id="d19f5b55-35b3-4352-9c2d-9f8e0b7ba5da" />
+    <Project Path="src/IoTNetwork.Pwa/IoTNetwork.Pwa.csproj" Id="b6404ae2-e226-489e-bcee-5ba32c9bb0cd" />
+  </Folder>
+  <Folder Name="/docker/">
+    <Project Path="docker-compose.dcproj" Id="8c3f9a1d-5e6b-47c2-a8d4-1f2e3b4c5d6a">
+      <Build />
+    </Project>
+  </Folder>
+</Solution>

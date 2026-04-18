@@ -7,6 +7,7 @@ using IoTNetwork.Infrastructure.Persistence.Seeders;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +15,32 @@ MappingConfig.RegisterMappings();
 builder.Services.AddMapster();
 
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddOpenApi();
+
+builder.Services.AddEndpointsApiExplorer();
+var openApiTitle = builder.Configuration["OpenApi:Title"] ?? "API Red IoT Escolar";
+var openApiDescription = builder.Configuration["OpenApi:Description"] ?? "";
+var documentName = builder.Configuration["OpenApi:DocumentName"] ?? "v1";
+var infoVersion = builder.Configuration["OpenApi:InfoVersion"] ?? "1.0.0";
+var envLabel = builder.Configuration["OpenApi:EnvironmentLabel"];
+
+builder.Services.AddSwaggerGen(options =>
+{
+    var titleWithEnv = string.IsNullOrWhiteSpace(envLabel)
+        ? openApiTitle
+        : $"{openApiTitle} ({envLabel})";
+
+    options.SwaggerDoc(documentName, new OpenApiInfo
+    {
+        Title = titleWithEnv,
+        Version = infoVersion,
+        Description = openApiDescription,
+        Contact = new OpenApiContact
+        {
+            Name = "Instituto Tecnológico de Celaya",
+            Url = new Uri("https://www.itcelaya.edu.mx/")
+        }
+    });
+});
 
 var corsOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                  ?? Array.Empty<string>();
@@ -35,10 +61,14 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.MapOpenApi();
-}
+    options.SwaggerEndpoint($"/swagger/{documentName}/swagger.json", $"{openApiTitle} {infoVersion}");
+    options.DocumentTitle = string.IsNullOrWhiteSpace(envLabel)
+        ? $"{openApiTitle} — Swagger"
+        : $"{openApiTitle} ({envLabel}) — Swagger";
+});
 
 app.UseCors("Default");
 
@@ -52,13 +82,13 @@ try
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<IoTNetworkDbContext>();
-    db.Database.Migrate();
+    await db.Database.MigrateAsync();
 
     if (app.Environment.IsDevelopment()
         && app.Configuration.GetValue("Seed:EnableDevData", false))
     {
         var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
-        seeder.SeedAsync(CancellationToken.None).GetAwaiter().GetResult();
+        await seeder.SeedAsync(CancellationToken.None);
     }
 }
 catch (Exception ex)
@@ -68,4 +98,4 @@ catch (Exception ex)
     throw;
 }
 
-app.Run();
+await app.RunAsync();

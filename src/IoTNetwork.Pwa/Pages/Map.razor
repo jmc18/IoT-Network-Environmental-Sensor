@@ -2,41 +2,77 @@
 @inject IIoTTelemetryApi Api
 @inject IJSRuntime Js
 
-<PageTitle>Map</PageTitle>
+<PageTitle>Mapa</PageTitle>
 
-<div class="flex min-h-0 flex-1 flex-col gap-3 p-3 pb-24 md:p-4 md:pb-4">
-    <header class="flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-        <h1 class="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">Live map</h1>
-        <p class="text-sm text-slate-600 md:text-base">OpenStreetMap centered on the latest reading with coordinates for the selected node.</p>
+<div class="flex min-h-0 flex-1 flex-col gap-4">
+    <header class="flex flex-col gap-3 rounded-3xl bg-white p-5 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700/80 md:p-6">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h1 class="text-xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-2xl">Mapa en vivo</h1>
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400 md:text-base">OpenStreetMap centrado en la última lectura con coordenadas del nodo seleccionado.</p>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_selectedNode))
+            {
+                <a href="@($"node/{Uri.EscapeDataString(_selectedNode)}")"
+                   class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-teal-700 shadow-sm transition hover:bg-teal-50 active:bg-teal-100/80 dark:border-slate-600 dark:bg-slate-800 dark:text-teal-300 dark:hover:bg-teal-950/50">
+                    Historial del nodo
+                </a>
+            }
+        </div>
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label class="text-sm font-medium text-slate-700" for="node">Node</label>
-            <select id="node" class="min-h-12 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-base text-slate-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30" value="@_selectedNode" @onchange="OnSelectChanged">
+            <label class="text-sm font-medium text-slate-700 dark:text-slate-300" for="node">Nodo</label>
+            <select id="node" class="min-h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-3 text-base text-slate-900 shadow-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/30 dark:border-slate-600 dark:bg-slate-800 dark:text-white" value="@_selectedNode" @onchange="OnSelectChanged">
                 @foreach (var n in _nodes)
                 {
                     <option value="@n">@n</option>
                 }
             </select>
-            <button type="button" class="inline-flex min-h-12 items-center justify-center rounded-xl bg-brand-600 px-4 text-base font-semibold text-white shadow-sm active:bg-brand-600/90" @onclick="RefreshAsync">Refresh</button>
+            <button type="button" class="inline-flex min-h-12 items-center justify-center rounded-2xl bg-teal-600 px-4 text-base font-semibold text-white shadow-md shadow-teal-600/20 transition hover:bg-teal-700 active:bg-teal-800" @onclick="RefreshAsync">Actualizar</button>
         </div>
         @if (!string.IsNullOrEmpty(_error))
         {
-            <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200">@_error</p>
+            <p class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:ring-rose-800">@_error</p>
         }
     </header>
 
-    <div id="map-host" class="min-h-[45vh] w-full flex-1 overflow-hidden rounded-2xl bg-slate-200 shadow-inner ring-1 ring-slate-300 md:min-h-[55vh]"></div>
+    <div id="map-host" class="min-h-[42vh] w-full flex-1 overflow-hidden rounded-3xl bg-slate-200 shadow-inner ring-1 ring-slate-300/80 dark:bg-slate-800 dark:ring-slate-600/80 md:min-h-[50vh]"></div>
 
     @if (_last is not null)
     {
-        <section class="grid grid-cols-2 gap-2 rounded-2xl bg-white p-3 text-sm shadow-sm ring-1 ring-slate-200 sm:grid-cols-3 md:gap-3 md:p-4 md:text-base">
-            <div><span class="text-slate-500">Temp</span><div class="font-semibold">@Format(_last.Temperature, "°C")</div></div>
-            <div><span class="text-slate-500">RH</span><div class="font-semibold">@Format(_last.Humidity, "%")</div></div>
-            <div class="col-span-2 sm:col-span-1"><span class="text-slate-500">CO₂</span><div class="font-semibold">@Format(_last.Co2, "ppm")</div></div>
-            <div><span class="text-slate-500">Noise</span><div class="font-semibold">@Format(_last.NoiseLevel, "dB")</div></div>
-            <div class="col-span-2"><span class="text-slate-500">Time (UTC)</span><div class="font-semibold">@_last.TimestampUtc.ToString("u")</div></div>
+        <section aria-label="Lecturas del nodo">
+            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Toca un indicador para ver detalle (bajo / medio / alto)</p>
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
+                <MetricTapCard Title="Temperatura"
+                               Value="@MetricViewHelper.FormatValue(_last, TelemetryMetricKind.Temperature)"
+                               Band="MetricViewHelper.Band(_last, TelemetryMetricKind.Temperature)"
+                               OnOpen="@(() => OpenMetricModal(TelemetryMetricKind.Temperature))" />
+                <MetricTapCard Title="Humedad"
+                               Value="@MetricViewHelper.FormatValue(_last, TelemetryMetricKind.Humidity)"
+                               Band="MetricViewHelper.Band(_last, TelemetryMetricKind.Humidity)"
+                               OnOpen="@(() => OpenMetricModal(TelemetryMetricKind.Humidity))" />
+                <MetricTapCard Title="CO₂"
+                               Value="@MetricViewHelper.FormatValue(_last, TelemetryMetricKind.Co2)"
+                               Band="MetricViewHelper.Band(_last, TelemetryMetricKind.Co2)"
+                               OnOpen="@(() => OpenMetricModal(TelemetryMetricKind.Co2))" />
+                <MetricTapCard Title="Ruido"
+                               Value="@MetricViewHelper.FormatValue(_last, TelemetryMetricKind.Noise)"
+                               Band="MetricViewHelper.Band(_last, TelemetryMetricKind.Noise)"
+                               OnOpen="@(() => OpenMetricModal(TelemetryMetricKind.Noise))" />
+            </div>
+            <p class="mt-3 text-center text-xs text-slate-500 dark:text-slate-500">Última muestra (UTC): @_last.TimestampUtc.ToString("u")</p>
         </section>
     }
 </div>
+
+<MetricReadingModal Open="ShowMetricModal"
+                    OnClose="EventCallback.Factory.Create(this, CloseMetricModal)"
+                    Reading="_last"
+                    Title="@MetricModalTitle"
+                    Subtitle="Lectura seleccionada"
+                    ValueDisplay="@MetricModalValue"
+                    Band="MetricModalBand"
+                    BandLabel="@TelemetryLevels.BandLabelEs(MetricModalBand)"
+                    BandHint="@MetricModalHint" />
 
 @code {
     private readonly List<string> _nodes = [];
@@ -44,6 +80,7 @@
     private TelemetryReadingDto? _last;
     private string? _error;
     private Guid? _mapBoundReadingId;
+    private TelemetryMetricKind? _metricModal;
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,6 +107,7 @@
     {
         _selectedNode = e.Value?.ToString();
         _mapBoundReadingId = null;
+        _metricModal = null;
         _error = null;
         try
         {
@@ -85,6 +123,7 @@
     {
         _error = null;
         _mapBoundReadingId = null;
+        _metricModal = null;
         try
         {
             var nodes = await Api.GetNodesAsync();
@@ -134,6 +173,31 @@
         _mapBoundReadingId = _last.Id;
     }
 
-    private static string Format(double? v, string suffix) =>
-        v.HasValue ? $"{v.Value:0.#}{suffix}" : "—";
+    private void OpenMetricModal(TelemetryMetricKind k) => _metricModal = k;
+
+    private Task CloseMetricModal()
+    {
+        _metricModal = null;
+        return Task.CompletedTask;
+    }
+
+    private bool ShowMetricModal => _metricModal.HasValue && _last is not null;
+
+    private string MetricModalTitle =>
+        _metricModal is null ? "" : MetricViewHelper.Title(_metricModal.Value);
+
+    private string MetricModalValue =>
+        _metricModal is null || _last is null
+            ? "—"
+            : MetricViewHelper.FormatValue(_last, _metricModal.Value);
+
+    private MetricBand MetricModalBand =>
+        MetricViewHelper.Band(_last, _metricModal ?? TelemetryMetricKind.Temperature);
+
+    private string MetricModalHint =>
+        _metricModal is null
+            ? ""
+            : TelemetryLevels.BandDescriptionEs(
+                MetricViewHelper.MetricKey(_metricModal.Value),
+                MetricModalBand);
 }

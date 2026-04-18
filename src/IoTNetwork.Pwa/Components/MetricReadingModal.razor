@@ -1,0 +1,60 @@
+@using IoTNetwork.Pwa.Models
+@using IoTNetwork.Pwa.Services
+
+@if (Open && Reading is not null)
+{
+    <div class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/55 p-0 sm:items-center sm:p-4 dark:bg-black/60"
+         role="presentation"
+         @onclick="Close">
+        <div class="flex max-h-[90dvh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-slate-200 sm:rounded-2xl dark:bg-slate-900 dark:ring-slate-700"
+             style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="metric-modal-title"
+             @onclick:stopPropagation="true">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">@Subtitle</p>
+                    <h2 id="metric-modal-title" class="mt-1 text-xl font-bold tracking-tight text-slate-900 dark:text-white">@Title</h2>
+                </div>
+                <button type="button"
+                        class="min-h-11 min-w-11 shrink-0 rounded-xl border border-slate-200 bg-slate-50 text-lg leading-none text-slate-600 active:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        @onclick="Close"
+                        aria-label="Cerrar">&times;</button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="rounded-full px-3 py-1 text-sm font-semibold @BandBadgeClass">@BandLabel</span>
+                <span class="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">@ValueDisplay</span>
+            </div>
+
+            <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-300">@BandHint</p>
+
+            <dl class="grid gap-2 rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-800/80">
+                <div class="flex justify-between gap-4"><dt class="text-slate-500 dark:text-slate-400">Nodo</dt><dd class="font-medium text-slate-900 dark:text-white">@Reading.NodeId</dd></div>
+                <div class="flex justify-between gap-4"><dt class="text-slate-500 dark:text-slate-400">Hora (UTC)</dt><dd class="font-medium text-slate-900 dark:text-white">@Reading.TimestampUtc.ToString("u")</dd></div>
+                @if (Reading.Latitude is not null && Reading.Longitude is not null)
+                {
+                    <div class="flex justify-between gap-4"><dt class="text-slate-500 dark:text-slate-400">Ubicación</dt><dd class="text-right font-mono text-xs text-slate-800 dark:text-slate-200">@Reading.Latitude.Value.ToString("0.#####"), @Reading.Longitude.Value.ToString("0.#####")</dd></div>
+                }
+            </dl>
+
+            <p class="text-xs text-slate-500 dark:text-slate-400">Los niveles bajo / medio / alto son referencias prácticas para aulas; no sustituyen normativa oficial ni calibración de laboratorio.</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public TelemetryReadingDto? Reading { get; set; }
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Subtitle { get; set; } = "Lectura actual";
+    [Parameter] public string ValueDisplay { get; set; } = "—";
+    [Parameter] public MetricBand Band { get; set; }
+    [Parameter] public string BandLabel { get; set; } = "";
+    [Parameter] public string BandHint { get; set; } = "";
+    private string BandBadgeClass => TelemetryLevels.BandBadgeTailwind(Band);
+
+    private Task Close() => OnClose.InvokeAsync();
+}

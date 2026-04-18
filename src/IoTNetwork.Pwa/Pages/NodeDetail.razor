@@ -1,0 +1,152 @@
+@page "/node/{NodeId}"
+@inject IIoTTelemetryApi Api
+
+<PageTitle>Nodo @DisplayNodeId</PageTitle>
+
+<div class="flex min-h-0 flex-1 flex-col gap-4">
+    <header class="rounded-3xl bg-white p-5 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700/80 md:p-6">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lecturas por nodo</p>
+                <h1 class="mt-1 break-all text-xl font-bold tracking-tight text-slate-900 dark:text-white md:text-2xl">@DisplayNodeId</h1>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Toca un indicador para ver el detalle de esa muestra.</p>
+            </div>
+            <div class="flex shrink-0 flex-col gap-2 sm:items-end">
+                <a href="map" class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 active:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Ir al mapa</a>
+                <a href="" class="inline-flex min-h-11 items-center justify-center rounded-2xl bg-teal-600 px-4 text-sm font-semibold text-white shadow-md shadow-teal-600/20 transition hover:bg-teal-700 active:bg-teal-800">Inicio</a>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200 dark:bg-rose-950/40 dark:text-rose-200 dark:ring-rose-800">@_error</p>
+        }
+    </header>
+
+    @if (_loading)
+    {
+        <p class="py-8 text-center text-slate-500 dark:text-slate-400">Cargando lecturas…</p>
+    }
+    else if (_readings.Count == 0 && string.IsNullOrEmpty(_error))
+    {
+        <p class="rounded-3xl bg-white p-8 text-center text-slate-600 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-700/80">No hay lecturas en el rango consultado para este nodo.</p>
+    }
+    else
+    {
+        <div class="flex flex-col gap-4">
+            @foreach (var r in _readings)
+            {
+                <article class="rounded-3xl bg-white p-5 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700/80">
+                    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">@r.TimestampUtc.ToString("u")</p>
+                    <div class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <MetricTapCard Title="Temperatura"
+                                       Value="@MetricViewHelper.FormatValue(r, TelemetryMetricKind.Temperature)"
+                                       Band="MetricViewHelper.Band(r, TelemetryMetricKind.Temperature)"
+                                       OnOpen="@(() => OpenModal(r, TelemetryMetricKind.Temperature))" />
+                        <MetricTapCard Title="Humedad"
+                                       Value="@MetricViewHelper.FormatValue(r, TelemetryMetricKind.Humidity)"
+                                       Band="MetricViewHelper.Band(r, TelemetryMetricKind.Humidity)"
+                                       OnOpen="@(() => OpenModal(r, TelemetryMetricKind.Humidity))" />
+                        <MetricTapCard Title="CO₂"
+                                       Value="@MetricViewHelper.FormatValue(r, TelemetryMetricKind.Co2)"
+                                       Band="MetricViewHelper.Band(r, TelemetryMetricKind.Co2)"
+                                       OnOpen="@(() => OpenModal(r, TelemetryMetricKind.Co2))" />
+                        <MetricTapCard Title="Ruido"
+                                       Value="@MetricViewHelper.FormatValue(r, TelemetryMetricKind.Noise)"
+                                       Band="MetricViewHelper.Band(r, TelemetryMetricKind.Noise)"
+                                       OnOpen="@(() => OpenModal(r, TelemetryMetricKind.Noise))" />
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</div>
+
+<MetricReadingModal Open="ModalOpen"
+                    OnClose="EventCallback.Factory.Create(this, CloseModal)"
+                    Reading="_modalReading"
+                    Title="@ModalTitle"
+                    Subtitle="Lectura seleccionada"
+                    ValueDisplay="@ModalValue"
+                    Band="ModalBand"
+                    BandLabel="@TelemetryLevels.BandLabelEs(ModalBand)"
+                    BandHint="@ModalHint" />
+
+@code {
+    [Parameter] public string NodeId { get; set; } = "";
+
+    private readonly List<TelemetryReadingDto> _readings = [];
+    private bool _loading = true;
+    private string? _error;
+    private TelemetryReadingDto? _modalReading;
+    private TelemetryMetricKind? _modalKind;
+    private string? _prevNodeId;
+
+    private string DisplayNodeId => Uri.UnescapeDataString(NodeId);
+
+    private bool ModalOpen => _modalReading is not null && _modalKind is not null;
+
+    private string ModalTitle => _modalKind is null ? "" : MetricViewHelper.Title(_modalKind.Value);
+
+    private string ModalValue => MetricViewHelper.FormatValue(_modalReading, _modalKind ?? TelemetryMetricKind.Temperature);
+
+    private MetricBand ModalBand => MetricViewHelper.Band(_modalReading, _modalKind ?? TelemetryMetricKind.Temperature);
+
+    private string ModalHint =>
+        _modalKind is null
+            ? ""
+            : TelemetryLevels.BandDescriptionEs(MetricViewHelper.MetricKey(_modalKind.Value), ModalBand);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(_prevNodeId, NodeId, StringComparison.Ordinal)) return;
+        _prevNodeId = NodeId;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(NodeId))
+        {
+            _readings.Clear();
+            _loading = false;
+            _error = "Nodo no válido.";
+            return;
+        }
+
+        _loading = true;
+        _error = null;
+        _modalReading = null;
+        _modalKind = null;
+        try
+        {
+            var id = DisplayNodeId;
+            var to = DateTime.UtcNow;
+            var from = to.AddDays(-30);
+            var items = await Api.GetReadingsAsync(id, from, to, 200);
+            _readings.Clear();
+            _readings.AddRange(items.OrderByDescending(x => x.TimestampUtc));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _readings.Clear();
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenModal(TelemetryReadingDto r, TelemetryMetricKind kind)
+    {
+        _modalReading = r;
+        _modalKind = kind;
+    }
+
+    private Task CloseModal()
+    {
+        _modalReading = null;
+        _modalKind = null;
+        return Task.CompletedTask;
+    }
+}

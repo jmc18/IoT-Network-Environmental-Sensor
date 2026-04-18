@@ -7,12 +7,20 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-var apiBase = builder.Configuration["Api:BaseUrl"];
+// ApiSettings (estilo A_PG) con compatibilidad Api:BaseUrl
+var apiBase = builder.Configuration["ApiSettings:BaseUrl"]
+    ?? builder.Configuration["Api:BaseUrl"];
 if (string.IsNullOrWhiteSpace(apiBase))
 {
     apiBase = builder.HostEnvironment.BaseAddress;
 }
 
-builder.Services.AddScoped<IIoTTelemetryApi>(_ => new IoTTelemetryApi(new HttpClient { BaseAddress = new Uri(apiBase, UriKind.Absolute) }));
+var timeoutSeconds = builder.Configuration.GetValue("ApiSettings:Timeout", 30);
+builder.Services.AddSingleton<ThemeService>();
+builder.Services.AddScoped<IIoTTelemetryApi>(_ => new IoTTelemetryApi(new HttpClient
+{
+    BaseAddress = new Uri(apiBase, UriKind.Absolute),
+    Timeout = TimeSpan.FromSeconds(timeoutSeconds)
+}));
 
 await builder.Build().RunAsync();

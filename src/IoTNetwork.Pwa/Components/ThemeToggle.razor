@@ -1,0 +1,45 @@
+@inject ThemeService Theme
+@implements IDisposable
+
+<button type="button"
+        class="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white/90 text-base text-slate-800 shadow-sm transition hover:bg-slate-50 active:scale-[0.97] dark:border-slate-600 dark:bg-slate-800/90 dark:text-amber-100 dark:hover:bg-slate-700"
+        @onclick="ToggleAsync"
+        aria-label="@(Theme.IsDark ? "Cambiar a tema claro" : "Cambiar a tema oscuro")"
+        title="@(Theme.IsDark ? "Tema claro" : "Tema oscuro")">
+    @if (Theme.IsDark)
+    {
+        <span aria-hidden="true">&#9728;&#65039;</span>
+    }
+    else
+    {
+        <span aria-hidden="true">&#127769;</span>
+    }
+</button>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                await Theme.SyncFromDomAsync();
+                Theme.Changed += OnThemeChanged;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (JSException)
+            {
+            }
+        }
+    }
+
+    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task ToggleAsync()
+    {
+        await Theme.ToggleAsync();
+        StateHasChanged();
+    }
+
+    public void Dispose() => Theme.Changed -= OnThemeChanged;
+}

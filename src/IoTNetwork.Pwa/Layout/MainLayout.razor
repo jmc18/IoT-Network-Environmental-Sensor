@@ -1,8 +1,26 @@
 @inherits LayoutComponentBase
+@inject IJSRuntime Js
+@using Microsoft.JSInterop
 
-<div class="flex min-h-dvh flex-col bg-slate-50">
+<div class="flex min-h-dvh flex-col bg-slate-100 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(45,212,191,0.14),transparent)] dark:bg-slate-950 dark:bg-[radial-gradient(ellipse_100%_60%_at_50%_0%,rgba(45,212,191,0.08),transparent)]">
+    <TopBar />
     <main class="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        @Body
+        <div class="container mx-auto w-full max-w-5xl flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-6 sm:pb-28">
+            @Body
+        </div>
     </main>
     <NavMenu />
 </div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("InitPreline");
+        }
+        catch (JSException)
+        {
+        }
+    }
+}

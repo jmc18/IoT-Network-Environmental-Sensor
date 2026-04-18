@@ -1,13 +1,12 @@
-# Copy to docker-compose.override.yml for local development overrides
-# cp docker-compose.override.yml.example docker-compose.override.yml
+# Copiar a docker-compose.override.yml para overrides locales (no versionar secretos).
+# Patrón similar a InvoiceMe / A_PG.
 
 services:
-  iot.functions:
+  api:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - DOTNET_USE_POLLING_FILE_WATCHER=true
     ports:
-      - "7071:80"
+      - "5099:5099"
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
       - ${LOCALAPPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro

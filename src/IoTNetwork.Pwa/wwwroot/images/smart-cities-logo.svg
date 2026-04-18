@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="logo-title">
+  <title id="logo-title">Mapas de ciudades inteligentes</title>
+  <defs>
+    <linearGradient id="mc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d9488"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="26" fill="url(#mc)"/>
+  <g fill="#ffffff" opacity="0.92">
+    <path d="M22 34h76v5H22zm0 16h76v5H22zm0 16h52v5H22z"/>
+    <circle cx="28" cy="37" r="2.2"/>
+    <circle cx="48" cy="53" r="2.2"/>
+    <circle cx="36" cy="69" r="2.2"/>
+  </g>
+  <path fill="#ffffff" d="M74 44c0-9.4 7.6-17 17-17s17 7.6 17 17c0 11.5-17 27-17 27S74 55.5 74 44zm17-8a8 8 0 108 .1 8 8 0 00-8-.1z"/>
+</svg>

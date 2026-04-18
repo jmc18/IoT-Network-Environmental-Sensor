@@ -3,14 +3,22 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "css:build": "npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css",
-    "css:release": "npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css --minify",
-    "css:watch": "npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css --watch",
+    "copy-preline": "copyfiles -u 1 \"node_modules/preline/**/**.{css,js}\" wwwroot/",
+    "css:Debug:build": "npm run copy-preline && npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css",
+    "css:Debug:watch": "npm run copy-preline && npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css --watch",
+    "css:Staging:build": "npm run css:Release:build",
+    "css:Release:build": "npm run copy-preline && npx @tailwindcss/cli -i ./wwwroot/styles/tailwind-styles.css -o ./wwwroot/css/app.css --minify",
+    "css:build": "npm run css:Debug:build",
+    "css:release": "npm run css:Release:build",
+    "css:watch": "npm run css:Debug:watch",
     "dev:pwa": "concurrently -k -n wasm,tailwind \"dotnet watch --project ./IoTNetwork.Pwa.csproj\" \"npm run css:watch\""
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.2",
+    "@tailwindcss/forms": "^0.5.10",
     "concurrently": "^9.1.2",
+    "copyfiles": "^2.4.1",
+    "preline": "^3.0.1",
     "tailwindcss": "^4.2.2"
   }
 }

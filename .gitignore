@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 bin
 obj
 publish
+
+# Preline UI copiado desde node_modules (npm run copy-preline)
+src/IoTNetwork.Pwa/wwwroot/preline/

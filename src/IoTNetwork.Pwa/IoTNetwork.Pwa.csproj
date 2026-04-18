@@ -4,8 +4,10 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
     <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <!-- Staging: dotnet publish -p:BlazorWebAssemblyEnvironment=Staging -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,5 +18,16 @@
   <ItemGroup>
     <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
   </ItemGroup>
+
+  <Target Name="TailwindDebug" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+    <Message Importance="high" Text="[Tailwind] Build desarrollo..." />
+    <Exec Command="npm run css:Debug:build" />
+    <Exec Command="npm run css:Debug:watch" />
+  </Target>
+
+  <Target Name="TailwindRelease" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <Message Importance="high" Text="[Tailwind] Build producción (minify)..." />
+    <Exec Command="npm run css:Release:build" />
+  </Target>
 
 </Project>

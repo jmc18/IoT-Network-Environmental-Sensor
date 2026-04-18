@@ -1,15 +1,85 @@
 @page "/"
+@inject IIoTTelemetryApi Api
 
-<PageTitle>IoT Network</PageTitle>
+<PageTitle>Red IoT escolar</PageTitle>
 
-<div class="flex min-h-0 flex-1 flex-col gap-4 p-4 pb-24 md:pb-8">
-    <section class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">IoT environmental map</h1>
-        <p class="mt-3 max-w-prose text-base text-slate-600 md:text-lg">
-            Progressive web app for tablets and phones. Connect ESP32 nodes to the API, then explore readings on the interactive map.
-        </p>
-        <a href="map" class="mt-6 inline-flex min-h-12 min-w-[44px] items-center justify-center rounded-xl bg-brand-600 px-5 text-base font-semibold text-white shadow-sm active:bg-brand-600/90">
-            Open map
-        </a>
+<div class="flex min-h-0 flex-1 flex-col gap-5">
+    <header class="flex flex-col gap-4 overflow-hidden rounded-3xl bg-white p-6 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700/80 md:flex-row md:items-center md:gap-8 md:p-8">
+        <img src="images/smart-cities-logo.svg" width="88" height="88" class="mx-auto h-20 w-20 shrink-0 rounded-2xl shadow-md md:mx-0 md:h-24 md:w-24" alt="" aria-hidden="true" />
+        <div class="min-w-0 text-center md:text-left">
+            <p class="text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Instituto Tecnológico de Celaya</p>
+            <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white md:text-3xl">Red IoT escolar</h1>
+            <p class="mt-3 text-base leading-relaxed text-slate-600 dark:text-slate-300 md:text-lg">
+                Monitoreo ambiental en tablets y móviles: mapa en vivo y lecturas por nodo.
+            </p>
+        </div>
+    </header>
+
+    <section class="rounded-3xl bg-white p-6 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700/80">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Accesos rápidos</h2>
+        <div class="mt-4 flex flex-col gap-3 sm:flex-row">
+            <a href="map" class="inline-flex min-h-12 flex-1 items-center justify-center rounded-2xl bg-teal-600 px-5 text-base font-semibold text-white shadow-md shadow-teal-600/25 transition hover:bg-teal-700 active:bg-teal-800">
+                Abrir mapa en vivo
+            </a>
+        </div>
+    </section>
+
+    <section class="rounded-3xl bg-white p-6 shadow-md ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-700/80">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Nodos</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Elige un nodo para ver el historial de lecturas.</p>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 ring-1 ring-rose-200 dark:bg-rose-950/50 dark:text-rose-200 dark:ring-rose-800">@_error</p>
+        }
+        else if (_loading)
+        {
+            <p class="mt-8 text-center text-slate-500 dark:text-slate-400">Cargando nodos…</p>
+        }
+        else if (_nodes.Count == 0)
+        {
+            <p class="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400">No hay nodos registrados todavía. Conecta un dispositivo al API y vuelve a intentar.</p>
+        }
+        else
+        {
+            <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+                @foreach (var n in _nodes)
+                {
+                    <li>
+                        <a href="@NodeUrl(n)"
+                           class="flex min-h-14 items-center rounded-2xl border border-slate-200/90 bg-slate-50/90 px-4 py-3 text-base font-semibold text-slate-900 shadow-sm transition hover:border-teal-200 hover:bg-teal-50/50 active:bg-teal-50 dark:border-slate-600 dark:bg-slate-800/80 dark:text-white dark:hover:border-teal-700 dark:hover:bg-teal-950/40">
+                            <span class="mr-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-600/15 text-teal-700 dark:bg-teal-500/20 dark:text-teal-300" aria-hidden="true">&#9679;</span>
+                            <span class="min-w-0 truncate">@n</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
     </section>
 </div>
+
+@code {
+    private readonly List<string> _nodes = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var nodes = await Api.GetNodesAsync();
+            _nodes.Clear();
+            _nodes.AddRange(nodes);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string NodeUrl(string nodeId) => $"node/{Uri.EscapeDataString(nodeId)}";
+}

@@ -1,87 +1,40 @@
-# Docker - IoT Network Backend (estructura como A_PG)
+# Docker — API ASP.NET Core + PostgreSQL (patrón InvoiceMe / A_PG)
 
-Este proyecto incluye una configuración de Docker Compose que ejecuta las Azure Functions, Cosmos DB Emulator y Azurite para desarrollo local.
+Stack local: **PostgreSQL**, **IoTNetwork.Api**, **Adminer** (como InvoiceMe).
 
-## Requisitos previos
+## Requisitos
 
-- Docker Desktop ([Instalar Docker](https://docs.docker.com/get-docker/))
-- Docker Compose v2 (incluido en Docker Desktop)
-- Al menos 4GB de RAM para Cosmos DB Emulator
+- Docker Desktop y Docker Compose v2
 
 ## Inicio rápido
 
 ```bash
-# Construir e iniciar todo (Functions + Cosmos DB + Azurite)
+# Raíz del repo
 docker compose up -d --build
-
-# Ver logs
-docker compose logs -f iot.functions
 ```
 
-**URLs disponibles:**
-- API Functions: http://localhost:7071
-- Cosmos Data Explorer: https://localhost:8081
-- Azurite Blob: http://localhost:10000
+**URLs (por defecto):**
 
-## Estructura de archivos (como A_PG)
+| Servicio | URL |
+|-----------|-----|
+| API       | http://localhost:5099 |
+| PostgreSQL| `localhost:55432` (usuario `iot`, contraseña `iot`, BD `iotnetwork`) |
+| Adminer   | http://localhost:8082 |
 
-```
-IoT_Network/
-├── docker-compose.yml              # Producción (Functions + Cosmos + Azurite)
-├── docker-compose.dcproj          # Proyecto Docker Compose para Visual Studio
-├── docker-compose.override.yml.example  # Template para override local
-├── IoTBackend/Functions/
-│   └── Dockerfile                 # Dockerfile de las Functions
-└── .dockerignore
-```
+Variables opcionales: copia [.env.example](.env.example) a `.env` y ajusta `POSTGRES_PORT`, `API_PORT`, `ADMINER_PORT`.
 
-## Configuración
+## PWA contra API en Docker
 
-### Override local (opcional)
+En Visual Studio, ejecuta la PWA con el perfil **https (Staging API / Docker)** (`ASPNETCORE_ENVIRONMENT=Staging`).Los `wwwroot/appsettings.Staging.json` apuntan a `http://localhost:5099/`.
 
-Copia el ejemplo para configuraciones locales que no se versionan:
+Para API en local (`dotnet run`, puerto 8080), usa el perfil **https** (Development).
+
+## Overrides locales
 
 ```bash
 cp docker-compose.override.yml.example docker-compose.override.yml
 ```
 
-### Variables de entorno en compose
+## Azure Functions en esta solución
 
-Las Functions reciben automáticamente:
-- `AzureWebJobsStorage`: conexión a Azurite (blob, queue, table)
-- `CosmosDb__ConnectionString`: Cosmos Emulator vía `cosmosdb:8081`
-- `IOT_INGEST_API_KEY`: API key para ingesta
-
-## Comandos útiles
-
-```bash
-# Iniciar servicios
-docker compose up -d
-
-# Ver logs
-docker compose logs -f iot.functions
-
-# Detener
-docker compose down
-
-# Reconstruir solo Functions
-docker compose up -d --build iot.functions
-```
-
-## Probar la API
-
-```bash
-# Ingestar dato (con API key)
-curl -X POST http://localhost:7071/api/ingest \
-  -H "Content-Type: application/json" \
-  -H "X-Api-Key: dev-api-key-change-in-production" \
-  -d '{"nodeId":"node-1","lat":40.41,"lon":-3.70,"temperature":22.5,"humidity":55}'
-
-# Consultar lecturas
-curl "http://localhost:7071/api/readings?nodeId=node-1"
-```
-
-## Referencias
-
-- [Azure Functions Docker](https://github.com/Azure/azure-functions-docker)
-- [Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
+Las Functions incluidas en **`IoT_Network.sln`** están en **`src/Backend/`** (no en la carpeta `IoTBackend/`). Para ejecutarlas en local, usa `local.settings.json` en ese proyecto.
