@@ -1,5 +1,7 @@
+using IoTNetwork.Core.Abstractions.Notifications;
 using IoTNetwork.Core.Abstractions.Persistence;
 using IoTNetwork.Core.Abstractions.Repositories;
+using IoTNetwork.Infrastructure.Notifications;
 using IoTNetwork.Infrastructure.Persistence;
 using IoTNetwork.Infrastructure.Persistence.Repositories;
 using IoTNetwork.Infrastructure.Persistence.Seeders;
@@ -26,8 +28,12 @@ public static class DependencyInjection
 
         services.AddScoped<ITelemetryReadingRepository, TelemetryReadingRepository>();
         services.AddScoped<INodeDataDayRepository, NodeDataDayRepository>();
+        services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<DevelopmentDataSeeder>();
+
+        services.AddSingleton<FirebaseAppInitializer>();
+        services.AddScoped<ICriticalTelemetryNotifier, FirebasePushNotificationService>();
 
         return services;
     }

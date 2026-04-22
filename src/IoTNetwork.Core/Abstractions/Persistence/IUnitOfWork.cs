@@ -8,5 +8,7 @@ public interface IUnitOfWork : IDisposable
 
     INodeDataDayRepository NodeDataDays { get; }
 
+    IDeviceTokenRepository DeviceTokens { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

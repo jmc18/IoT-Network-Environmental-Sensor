@@ -23,4 +23,11 @@
     <ProjectReference Include="..\IoTNetwork.Core\IoTNetwork.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="*firebase-adminsdk*.json" Condition="Exists('$(MSBuildThisFileDirectory)\iot-network-49502-firebase-adminsdk-fbsvc-fe903187fd.json')">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

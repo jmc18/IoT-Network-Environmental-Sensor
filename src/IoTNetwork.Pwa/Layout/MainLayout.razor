@@ -1,8 +1,19 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime Js
+@inject AlertState Alerts
+@inject TelemetryHubClient Hub
+@inject PushRegistrationService PushRegistration
+@implements IDisposable
 @using Microsoft.JSInterop
 
-<div class="flex min-h-dvh flex-col bg-slate-100 bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(45,212,191,0.14),transparent)] dark:bg-slate-950 dark:bg-[radial-gradient(ellipse_100%_60%_at_50%_0%,rgba(45,212,191,0.08),transparent)]">
+<div class="@RootClasses">
+    @if (Alerts.Critical)
+    {
+        <div role="alert" class="sticky top-0 z-40 border-b border-rose-600/40 bg-rose-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-md">
+            Lectura crítica @(string.IsNullOrEmpty(Alerts.CurrentNodeId) ? "" : $"en {Alerts.CurrentNodeId}")
+            @(string.IsNullOrEmpty(Alerts.CurrentMetrics) ? "" : $" · {Alerts.CurrentMetrics}")
+        </div>
+    }
     <TopBar />
     <main class="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <div class="container mx-auto w-full max-w-5xl flex-1 px-4 py-5 pb-24 sm:px-6 sm:py-6 sm:pb-28">
@@ -13,6 +24,18 @@
 </div>
 
 @code {
+    private const string BaseLayout =
+        "flex min-h-dvh flex-col bg-[radial-gradient(ellipse_120%_80%_at_50%_-20%,rgba(45,212,191,0.14),transparent)] dark:bg-[radial-gradient(ellipse_100%_60%_at_50%_0%,rgba(45,212,191,0.08),transparent)] transition-colors duration-500";
+
+    private string RootClasses => Alerts.Critical
+        ? $"{BaseLayout} bg-rose-100 dark:bg-rose-950/70 ring-4 ring-inset ring-rose-500/80 animate-pulse"
+        : $"{BaseLayout} bg-slate-100 dark:bg-slate-950";
+
+    protected override void OnInitialized()
+    {
+        Alerts.Changed += OnAlertChanged;
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try
@@ -22,5 +45,21 @@
         catch (JSException)
         {
         }
+
+        if (firstRender)
+        {
+            _ = Hub.EnsureStartedAsync();
+            _ = PushRegistration.TryRegisterAsync();
+        }
+    }
+
+    private void OnAlertChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Alerts.Changed -= OnAlertChanged;
     }
 }

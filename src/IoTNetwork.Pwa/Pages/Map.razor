@@ -1,6 +1,8 @@
 @page "/map"
 @inject IIoTTelemetryApi Api
 @inject IJSRuntime Js
+@inject TelemetryHubClient Hub
+@implements IAsyncDisposable
 
 <PageTitle>Mapa</PageTitle>
 
@@ -39,6 +41,13 @@
 
     @if (_last is not null)
     {
+        <section aria-label="Tiempo real" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <LiveMetricChart @ref="_chartTemp" Title="Temperatura" Unit="°C" Kind="TelemetryMetricKind.Temperature" />
+            <LiveMetricChart @ref="_chartHum" Title="Humedad" Unit="%" Kind="TelemetryMetricKind.Humidity" />
+            <LiveMetricChart @ref="_chartCo2" Title="CO₂" Unit=" ppm" Kind="TelemetryMetricKind.Co2" />
+            <LiveMetricChart @ref="_chartNoise" Title="Ruido" Unit=" dB" Kind="TelemetryMetricKind.Noise" />
+        </section>
+
         <section aria-label="Lecturas del nodo">
             <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Toca un indicador para ver detalle (bajo / medio / alto)</p>
             <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-3">
@@ -81,6 +90,11 @@
     private string? _error;
     private Guid? _mapBoundReadingId;
     private TelemetryMetricKind? _metricModal;
+    private LiveMetricChart? _chartTemp;
+    private LiveMetricChart? _chartHum;
+    private LiveMetricChart? _chartCo2;
+    private LiveMetricChart? _chartNoise;
+    private string? _joinedHubNode;
 
     protected override async Task OnInitializedAsync()
     {
@@ -152,8 +166,66 @@
 
         var to = DateTime.UtcNow;
         var from = to.AddDays(-7);
-        var items = await Api.GetReadingsAsync(_selectedNode, from, to, 1);
-        _last = items.FirstOrDefault();
+        var items = await Api.GetReadingsAsync(_selectedNode, from, to, 60);
+        var ordered = items.OrderBy(x => x.TimestampUtc).ToList();
+        _last = ordered.LastOrDefault();
+
+        _chartTemp?.SeedHistory(ordered);
+        _chartHum?.SeedHistory(ordered);
+        _chartCo2?.SeedHistory(ordered);
+        _chartNoise?.SeedHistory(ordered);
+
+        await SubscribeHubAsync(_selectedNode);
+    }
+
+    private async Task SubscribeHubAsync(string nodeId)
+    {
+        if (string.Equals(_joinedHubNode, nodeId, StringComparison.Ordinal)) return;
+
+        if (_joinedHubNode is not null)
+        {
+            await Hub.LeaveNodeAsync(_joinedHubNode);
+        }
+
+        Hub.ReadingReceived -= OnLiveReading;
+        Hub.ReadingReceived += OnLiveReading;
+
+        await Hub.JoinNodeAsync(nodeId);
+        _joinedHubNode = nodeId;
+    }
+
+    private async void OnLiveReading(TelemetryReadingDto dto)
+    {
+        if (!string.Equals(dto.NodeId, _selectedNode, StringComparison.Ordinal)) return;
+
+        _last = dto;
+
+        var tasks = new List<Task>(4);
+        if (_chartTemp is not null) tasks.Add(_chartTemp.AppendAsync(dto));
+        if (_chartHum is not null) tasks.Add(_chartHum.AppendAsync(dto));
+        if (_chartCo2 is not null) tasks.Add(_chartCo2.AppendAsync(dto));
+        if (_chartNoise is not null) tasks.Add(_chartNoise.AppendAsync(dto));
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                StateHasChanged();
+                await Task.WhenAll(tasks);
+            });
+        }
+        catch
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Hub.ReadingReceived -= OnLiveReading;
+        if (_joinedHubNode is not null)
+        {
+            try { await Hub.LeaveNodeAsync(_joinedHubNode); } catch { }
+        }
     }
 
     private async Task TryMapAsync()

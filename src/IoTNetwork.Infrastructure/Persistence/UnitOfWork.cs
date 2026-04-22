@@ -7,11 +7,14 @@ namespace IoTNetwork.Infrastructure.Persistence;
 public sealed class UnitOfWork(
     IoTNetworkDbContext dbContext,
     ITelemetryReadingRepository telemetryReadings,
-    INodeDataDayRepository nodeDataDays) : IUnitOfWork
+    INodeDataDayRepository nodeDataDays,
+    IDeviceTokenRepository deviceTokens) : IUnitOfWork
 {
     public ITelemetryReadingRepository TelemetryReadings => telemetryReadings;
 
     public INodeDataDayRepository NodeDataDays => nodeDataDays;
+
+    public IDeviceTokenRepository DeviceTokens => deviceTokens;
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
         dbContext.SaveChangesAsync(cancellationToken);

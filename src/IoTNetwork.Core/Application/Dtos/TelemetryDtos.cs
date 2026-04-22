@@ -52,3 +52,15 @@ public sealed class NodesListDto
 {
     public IReadOnlyList<string> Nodes { get; init; } = Array.Empty<string>();
 }
+
+public sealed class DeviceTokenRegisterDto
+{
+    public string Token { get; init; } = string.Empty;
+
+    public string? NodeFilter { get; init; }
+}
+
+public sealed class DeviceTokenUnregisterDto
+{
+    public string Token { get; init; } = string.Empty;
+}

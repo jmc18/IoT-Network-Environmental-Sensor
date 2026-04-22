@@ -10,6 +10,8 @@ public sealed class IoTNetworkDbContext(DbContextOptions<IoTNetworkDbContext> op
 
     public DbSet<NodeDataDay> NodeDataDays => Set<NodeDataDay>();
 
+    public DbSet<DeviceToken> DeviceTokens => Set<DeviceToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

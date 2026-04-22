@@ -1,0 +1,143 @@
+@using IoTNetwork.Pwa.Services
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+<article class="rounded-3xl bg-white p-4 shadow-md ring-1 @(Critical ? "ring-2 ring-rose-500 animate-pulse" : "ring-slate-200/80") dark:bg-slate-900 dark:ring-slate-700/80">
+    <header class="mb-2 flex items-center justify-between gap-2">
+        <div class="min-w-0">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">@Title</p>
+            <p class="text-xl font-bold tabular-nums text-slate-900 dark:text-white">@DisplayValue</p>
+        </div>
+        <span class="rounded-full px-2 py-0.5 text-xs font-semibold @TelemetryLevels.BandBadgeTailwind(Band)">
+            @TelemetryLevels.BandLabelEs(Band)
+        </span>
+    </header>
+    <div id="@ElementId" class="h-40 w-full"></div>
+    <p class="mt-1 text-right text-[11px] text-slate-500 dark:text-slate-500">
+        @(_series.Count > 0 ? $"{_series.Count} puntos en vivo" : "Esperando datos…")
+    </p>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Unit { get; set; } = "";
+    [Parameter, EditorRequired] public TelemetryMetricKind Kind { get; set; }
+
+    private const int MaxPoints = 60;
+    private readonly List<double[]> _series = [];
+    private readonly string ElementId = $"chart-{Guid.NewGuid():N}";
+    private double? _lastValue;
+    private bool _initialized;
+    private MetricBand _band = MetricBand.Unknown;
+
+    private bool Critical => _band == MetricBand.High;
+
+    private MetricBand Band => _band;
+
+    private string DisplayValue =>
+        _lastValue is null ? "—" : $"{_lastValue.Value:0.#}{Unit}";
+
+    public void SeedHistory(IEnumerable<TelemetryReadingDto> readings)
+    {
+        _series.Clear();
+        _lastValue = null;
+        foreach (var r in readings.OrderBy(x => x.TimestampUtc))
+        {
+            AppendInternal(r, raiseRender: false);
+        }
+    }
+
+    public async Task AppendAsync(TelemetryReadingDto r)
+    {
+        if (!AppendInternal(r, raiseRender: true)) return;
+        await PushToChartAsync();
+    }
+
+    private bool AppendInternal(TelemetryReadingDto r, bool raiseRender)
+    {
+        var value = ValueFor(r);
+        if (value is null) return false;
+
+        var point = new[]
+        {
+            (double)new DateTimeOffset(DateTime.SpecifyKind(r.TimestampUtc, DateTimeKind.Utc))
+                .ToUnixTimeMilliseconds(),
+            value.Value
+        };
+        _series.Add(point);
+        if (_series.Count > MaxPoints) _series.RemoveAt(0);
+
+        _lastValue = value;
+        _band = BandFor(r);
+
+        if (raiseRender)
+        {
+            StateHasChanged();
+        }
+        return true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _initialized = true;
+            await InitChartAsync();
+        }
+        else if (_initialized)
+        {
+            await PushToChartAsync();
+        }
+    }
+
+    private async Task InitChartAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("iotChartInit", ElementId, _series, Unit, Critical);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private async Task PushToChartAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("iotChartUpdate", ElementId, _series, Critical);
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private double? ValueFor(TelemetryReadingDto r) => Kind switch
+    {
+        TelemetryMetricKind.Temperature => r.Temperature,
+        TelemetryMetricKind.Humidity => r.Humidity,
+        TelemetryMetricKind.Co2 => r.Co2,
+        TelemetryMetricKind.Noise => r.NoiseLevel,
+        _ => null
+    };
+
+    private MetricBand BandFor(TelemetryReadingDto r) => Kind switch
+    {
+        TelemetryMetricKind.Temperature => TelemetryLevels.TemperatureBand(r.Temperature),
+        TelemetryMetricKind.Humidity => TelemetryLevels.HumidityBand(r.Humidity),
+        TelemetryMetricKind.Co2 => TelemetryLevels.Co2Band(r.Co2),
+        TelemetryMetricKind.Noise => TelemetryLevels.NoiseBand(r.NoiseLevel),
+        _ => MetricBand.Unknown
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("iotChartDestroy", ElementId);
+        }
+        catch
+        {
+        }
+    }
+}

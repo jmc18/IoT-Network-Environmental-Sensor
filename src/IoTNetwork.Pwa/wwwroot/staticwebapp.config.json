@@ -1,6 +1,9 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/_framework/*", "/css/*", "/js/*", "*.wasm", "*.woff2", "*.blat", "*.dat", "*.png", "*.ico", "/manifest.webmanifest", "/service-worker.js", "/service-worker-assets.js"]
+    "exclude": ["/_framework/*", "/css/*", "/js/*", "*.wasm", "*.woff2", "*.blat", "*.dat", "*.png", "*.ico", "/manifest.webmanifest", "/service-worker.js", "/service-worker-assets.js", "/firebase-messaging-sw.js"]
+  },
+  "globalHeaders": {
+    "Service-Worker-Allowed": "/"
   }
 }

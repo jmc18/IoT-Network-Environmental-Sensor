@@ -1,11 +1,13 @@
 using IoTNetwork.Api.Endpoints;
 using IoTNetwork.Api.Mappings;
 using IoTNetwork.Api.Middleware;
+using IoTNetwork.Api.Realtime;
 using IoTNetwork.Infrastructure;
 using IoTNetwork.Infrastructure.Persistence;
 using IoTNetwork.Infrastructure.Persistence.Seeders;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 
@@ -50,14 +52,23 @@ builder.Services.AddCors(options =>
     {
         if (corsOrigins.Length > 0)
         {
-            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod();
+            policy.WithOrigins(corsOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         }
         else
         {
-            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+            policy.SetIsOriginAllowed(_ => true)
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         }
     });
 });
+
+builder.Services.AddSignalR();
+builder.Services.AddMemoryCache();
 
 var app = builder.Build();
 
@@ -77,6 +88,7 @@ app.MapWhen(
     branch => branch.UseMiddleware<ApiKeyMiddleware>());
 
 app.MapTelemetryRoutes();
+app.MapHub<TelemetryHub>("/hubs/telemetry").RequireCors("Default");
 
 try
 {

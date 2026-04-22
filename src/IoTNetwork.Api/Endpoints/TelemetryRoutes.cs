@@ -1,8 +1,11 @@
+using IoTNetwork.Api.Realtime;
 using IoTNetwork.Api.Validation;
+using IoTNetwork.Core.Abstractions.Notifications;
 using IoTNetwork.Core.Abstractions.Persistence;
 using IoTNetwork.Core.Application.Dtos;
 using IoTNetwork.Core.Domain.Entities;
 using Mapster;
+using Microsoft.AspNetCore.SignalR;
 
 namespace IoTNetwork.Api.Endpoints;
 
@@ -68,6 +71,8 @@ public static class TelemetryRoutes
             string nodeId,
             TelemetryIngestDto body,
             IUnitOfWork uow,
+            IHubContext<TelemetryHub> hub,
+            ICriticalTelemetryNotifier notifier,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(nodeId))
@@ -98,7 +103,53 @@ public static class TelemetryRoutes
             await uow.SaveChangesAsync(ct).ConfigureAwait(false);
 
             var dto = entity.Adapt<TelemetryReadingDto>();
+
+            await hub.Clients.Group(TelemetryHub.GroupName(entity.NodeId))
+                .SendAsync("reading", dto, ct).ConfigureAwait(false);
+            await hub.Clients.All.SendAsync("readingAny", dto, ct).ConfigureAwait(false);
+
+            _ = notifier.NotifyIfCriticalAsync(entity, CancellationToken.None);
+
             return Results.Created($"/api/nodes/{Uri.EscapeDataString(entity.NodeId)}/readings", dto);
+        });
+
+        api.MapPost("/push/register", async (
+            DeviceTokenRegisterDto body,
+            IUnitOfWork uow,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Token))
+            {
+                return Results.BadRequest("Token is required.");
+            }
+
+            var token = new DeviceToken
+            {
+                Id = Guid.NewGuid(),
+                Token = body.Token.Trim(),
+                NodeFilter = string.IsNullOrWhiteSpace(body.NodeFilter) ? null : body.NodeFilter!.Trim(),
+                CreatedAtUtc = DateTime.UtcNow,
+                LastSeenUtc = DateTime.UtcNow,
+            };
+
+            await uow.DeviceTokens.UpsertAsync(token, ct).ConfigureAwait(false);
+            await uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Results.Ok(new { ok = true });
+        });
+
+        api.MapPost("/push/unregister", async (
+            DeviceTokenUnregisterDto body,
+            IUnitOfWork uow,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Token))
+            {
+                return Results.BadRequest("Token is required.");
+            }
+
+            await uow.DeviceTokens.RemoveByTokenAsync(body.Token.Trim(), ct).ConfigureAwait(false);
+            await uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Results.Ok(new { ok = true });
         });
 
         api.MapGet("/health", () => Results.Ok(new { status = "ok" }));
