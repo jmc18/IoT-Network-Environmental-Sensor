@@ -1,5 +1,5 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Build & deploy del host ASP.NET Core que sirve la PWA Blazor WebAssembly
+# al App Service Linux iot-itc-mci.
 
 name: Build and deploy Blazor PWA to Azure Web App - iot-itc-mci
 
@@ -9,9 +9,15 @@ on:
       - main
     paths:
       - 'src/IoTNetwork.Pwa/**'
+      - 'src/IoTNetwork.Pwa.Host/**'
       - 'src/IoTNetwork.Core/**'
       - '.github/workflows/main_pwa_iot-itc-mci.yml'
   workflow_dispatch:
+
+env:
+  # Opta a Node 24 ya para evitar el warning de deprecación de Node 20
+  # en actions/download-artifact@v4 y azure/login@v2.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
@@ -38,19 +44,19 @@ jobs:
         working-directory: src/IoTNetwork.Pwa
         run: npm ci
 
-      - name: dotnet publish PWA
-        run: dotnet publish src/IoTNetwork.Pwa/IoTNetwork.Pwa.csproj -c Release -o ${{ env.DOTNET_ROOT }}/myapp
-
-      - name: Flatten Blazor WASM output (wwwroot as site root)
+      - name: dotnet publish PWA Host (linux-x64, self-contained for App Service)
         run: |
-          mkdir -p ${{ env.DOTNET_ROOT }}/site
-          cp -r ${{ env.DOTNET_ROOT }}/myapp/wwwroot/. ${{ env.DOTNET_ROOT }}/site/
+          dotnet publish src/IoTNetwork.Pwa.Host/IoTNetwork.Pwa.Host.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained false \
+            -o ${{ env.DOTNET_ROOT }}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: pwa-site
-          path: ${{ env.DOTNET_ROOT }}/site
+          path: ${{ env.DOTNET_ROOT }}/myapp
 
   deploy:
     runs-on: ubuntu-latest

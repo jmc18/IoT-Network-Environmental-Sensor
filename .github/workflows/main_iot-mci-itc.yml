@@ -4,7 +4,17 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/IoTNetwork.Api/**'
+      - 'src/IoTNetwork.Core/**'
+      - 'src/IoTNetwork.Infrastructure/**'
+      - '.github/workflows/main_iot-mci-itc.yml'
   workflow_dispatch:
+
+env:
+  # Opta a Node 24 ya para evitar el warning de deprecación de Node 20
+  # en actions/download-artifact@v4 y azure/login@v2.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
@@ -20,11 +30,13 @@ jobs:
         with:
           dotnet-version: "10.x"
 
-      - name: Build API with dotnet
-        run: dotnet build src/IoTNetwork.Api/IoTNetwork.Api.csproj --configuration Release
-
-      - name: Publish API
-        run: dotnet publish src/IoTNetwork.Api/IoTNetwork.Api.csproj -c Release -o ${{ env.DOTNET_ROOT }}/myapp
+      - name: Publish API (linux-x64 framework-dependent)
+        run: |
+          dotnet publish src/IoTNetwork.Api/IoTNetwork.Api.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained false \
+            -o ${{ env.DOTNET_ROOT }}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -56,4 +68,5 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: "iot-mci-itc"
+          slot-name: "Production"
           package: .
