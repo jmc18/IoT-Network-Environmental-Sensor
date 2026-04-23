@@ -1,6 +1,8 @@
 # Build & deploy de la PWA Blazor WebAssembly al App Service Windows iot-mci-app.
-# En Windows, IIS sirve directamente la salida de `dotnet publish` (incluye web.config
-# con rewrites para rutas SPA y MIME types correctos para .wasm/.dll).
+# dotnet publish genera un web.config en la raíz que hace rewrite a un subfolder
+# `wwwroot\...` donde están los archivos reales. Por eso se despliega la salida
+# completa de publish SIN aplanar: el web.config queda como raíz del sitio y
+# los estáticos en el subfolder `wwwroot/`.
 
 name: Build and deploy Blazor PWA to Azure Web App - iot-mci-app
 
@@ -51,17 +53,11 @@ jobs:
             -c Release `
             -o "${{ env.DOTNET_ROOT }}\myapp"
 
-      - name: Flatten Blazor WASM output (wwwroot as site root)
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "${{ env.DOTNET_ROOT }}\site" | Out-Null
-          Copy-Item -Path "${{ env.DOTNET_ROOT }}\myapp\wwwroot\*" -Destination "${{ env.DOTNET_ROOT }}\site" -Recurse -Force
-
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: pwa-site
-          path: ${{ env.DOTNET_ROOT }}\site
+          name: pwa-package
+          path: ${{ env.DOTNET_ROOT }}\myapp
 
   deploy:
     runs-on: windows-latest
@@ -74,7 +70,7 @@ jobs:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: pwa-site
+          name: pwa-package
 
       - name: Login to Azure
         uses: azure/login@v2
