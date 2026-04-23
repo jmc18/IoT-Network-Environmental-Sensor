@@ -64,6 +64,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: api-package
+          path: ./publish
+
+      - name: Zip publish output
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\publish\* -DestinationPath .\api-package.zip -Force
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -72,10 +78,19 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_9C628E0C0B374C07BE20C2A83AF7BB8A }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8C4BC442A9684C5684F0E5084BFD14BE }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure Web App (clean wwwroot)
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'iot-mci-api'
-          slot-name: 'Production'
-          package: .
+        shell: pwsh
+        run: |
+          $rg = az webapp list --query "[?name=='iot-mci-api'].resourceGroup | [0]" -o tsv
+          if (-not $rg) { throw "No se encontró el resource group del App Service 'iot-mci-api'." }
+          Write-Host "Resource group detectado: $rg"
+
+          az webapp deploy `
+            --resource-group $rg `
+            --name iot-mci-api `
+            --slot Production `
+            --src-path .\api-package.zip `
+            --type zip `
+            --clean true `
+            --restart true

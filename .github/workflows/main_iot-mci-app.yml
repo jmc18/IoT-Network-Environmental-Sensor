@@ -71,6 +71,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: pwa-package
+          path: ./publish
+
+      - name: Zip publish output
+        shell: pwsh
+        run: |
+          Compress-Archive -Path .\publish\* -DestinationPath .\pwa-package.zip -Force
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -79,10 +85,19 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_826F57E7C770430798F745ECBE30BE07 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C4432835030F4CD381172EF0716F691C }}
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure Web App (clean wwwroot)
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: 'iot-mci-app'
-          slot-name: 'Production'
-          package: .
+        shell: pwsh
+        run: |
+          $rg = az webapp list --query "[?name=='iot-mci-app'].resourceGroup | [0]" -o tsv
+          if (-not $rg) { throw "No se encontró el resource group del App Service 'iot-mci-app'." }
+          Write-Host "Resource group detectado: $rg"
+
+          az webapp deploy `
+            --resource-group $rg `
+            --name iot-mci-app `
+            --slot Production `
+            --src-path .\pwa-package.zip `
+            --type zip `
+            --clean true `
+            --restart true
