@@ -1,0 +1,146 @@
+@inject IJSRuntime Js
+@implements IAsyncDisposable
+
+@*
+    Botón "Instalar app".
+    - Chrome/Edge (Android y desktop): aparece cuando el navegador dispara
+      beforeinstallprompt. Al click, lanza el prompt nativo.
+    - Safari/iOS: aparece siempre que NO esté en modo standalone y abre un
+      modal Preline con instrucciones de "Compartir -> Añadir a pantalla de inicio".
+    - Modo standalone (ya instalada) o navegador sin soporte: el botón se oculta.
+*@
+
+@if (_visible)
+{
+    <button type="button"
+            class="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-teal-200/80 bg-teal-50/90 px-3 text-xs font-semibold text-teal-800 shadow-sm transition hover:bg-teal-100 active:scale-[0.97] dark:border-teal-800/70 dark:bg-teal-950/60 dark:text-teal-200 dark:hover:bg-teal-900/70 sm:text-sm"
+            @onclick="OnClickAsync"
+            aria-label="Instalar aplicación"
+            title="Instalar aplicación">
+        <svg class="size-4 shrink-0" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v10.5m0 0l-3.75-3.75M12 15l3.75-3.75M4.5 19.5h15" />
+        </svg>
+        <span class="hidden sm:inline">Instalar</span>
+    </button>
+}
+
+@* Modal Preline con instrucciones para iOS. *@
+<div id="pwa-ios-install-modal"
+     class="hs-overlay hidden pointer-events-none fixed inset-s-0 top-0 z-80 size-full overflow-y-auto overflow-x-hidden [--overlay-backdrop:static]"
+     role="dialog"
+     tabindex="-1"
+     aria-labelledby="pwa-ios-install-title">
+    <div class="hs-overlay-open:mt-7 hs-overlay-open:opacity-100 hs-overlay-open:duration-500 mt-0 opacity-0 ease-out transition-all sm:max-w-md sm:w-full m-3 sm:mx-auto">
+        <div class="flex flex-col bg-white border border-gray-200 shadow-2xs rounded-xl dark:bg-neutral-900 dark:border-neutral-800">
+            <div class="flex justify-between items-center py-3 px-4 border-b border-gray-200 dark:border-neutral-800">
+                <h3 id="pwa-ios-install-title" class="font-bold text-gray-800 dark:text-white">
+                    Instalar en tu iPhone / iPad
+                </h3>
+                <button type="button" class="size-8 inline-flex justify-center items-center rounded-full text-gray-500 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-800" aria-label="Cerrar" data-hs-overlay="#pwa-ios-install-modal">
+                    <span class="sr-only">Cerrar</span>
+                    <svg class="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                </button>
+            </div>
+            <div class="p-4 overflow-y-auto">
+                <ol class="list-decimal list-inside space-y-3 text-sm text-gray-700 dark:text-neutral-300">
+                    <li>
+                        Toca el botón <strong>Compartir</strong>
+                        <span class="inline-flex align-middle mx-1 text-blue-600 dark:text-blue-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v13" /><path d="m7 8 5-5 5 5" /><path d="M20 21H4a2 2 0 0 1-2-2v-7" /></svg>
+                        </span>
+                        en la barra de Safari.
+                    </li>
+                    <li>Desplázate y selecciona <strong>Añadir a pantalla de inicio</strong>.</li>
+                    <li>Confirma el nombre y toca <strong>Añadir</strong>.</li>
+                </ol>
+                <p class="mt-4 text-xs text-gray-500 dark:text-neutral-400">
+                    La instalación desde el navegador sólo está disponible en Safari. No funciona en Chrome / Firefox para iOS.
+                </p>
+            </div>
+            <div class="flex justify-end items-center gap-x-2 py-3 px-4 border-t border-gray-200 dark:border-neutral-800">
+                <button type="button" class="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-2xs hover:bg-gray-50 dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-800" data-hs-overlay="#pwa-ios-install-modal">Entendido</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DotNetObjectReference<InstallAppButton>? _selfRef;
+    private int? _listenerId;
+    private bool _canInstall;
+    private bool _isIOS;
+    private bool _isStandalone;
+
+    private bool _visible => !_isStandalone && (_canInstall || _isIOS);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            _listenerId = await Js.InvokeAsync<int>("pwaInstall.registerDotNetListener", _selfRef);
+        }
+        catch (JSException)
+        {
+            // pwa-install.js no cargó todavía; no es un error crítico.
+        }
+    }
+
+    [JSInvokable]
+    public Task OnPwaInstallStatusChanged(PwaInstallStatus status)
+    {
+        _canInstall = status.CanInstall;
+        _isIOS = status.IsIOS;
+        _isStandalone = status.IsStandalone || status.Installed;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnClickAsync()
+    {
+        if (_isIOS && !_canInstall)
+        {
+            try
+            {
+                await Js.InvokeVoidAsync("HSOverlay.open", "#pwa-ios-install-modal");
+            }
+            catch (JSException)
+            {
+                // Preline no está listo; nada que podamos hacer elegante aquí.
+            }
+            return;
+        }
+
+        try
+        {
+            await Js.InvokeAsync<string>("pwaInstall.prompt");
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_listenerId is int id)
+            {
+                await Js.InvokeVoidAsync("pwaInstall.unregisterDotNetListener", id);
+            }
+        }
+        catch
+        {
+            // El contexto JS puede estar caído durante navegación; ignorar.
+        }
+        _selfRef?.Dispose();
+    }
+
+    public sealed class PwaInstallStatus
+    {
+        public bool CanInstall { get; set; }
+        public bool Installed { get; set; }
+        public bool IsIOS { get; set; }
+        public bool IsStandalone { get; set; }
+    }
+}

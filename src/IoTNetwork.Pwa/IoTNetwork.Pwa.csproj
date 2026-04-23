@@ -14,21 +14,36 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.6" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.6" PrivateAssets="all" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <PackageReference Include="Toolbelt.Blazor.PWA.Updater" Version="3.2.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
   </ItemGroup>
 
-  <Target Name="TailwindDebug" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <Message Importance="high" Text="[Tailwind] Build desarrollo..." />
-    <Exec Command="npm run css:Debug:build" />
-    <Exec Command="npm run css:Debug:watch" />
+  <!--
+    web.config para hospedar la PWA en Azure App Service Windows (IIS).
+    Se copia a la raíz del publish output; IIS lo lee para MIME types y rewrite.
+    El SDK de Blazor WebAssembly standalone NO genera uno, por eso lo incluimos explícitamente.
+  -->
+  <Target Name="CopyWebConfigToPublishRoot" AfterTargets="Publish">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)/web.config" DestinationFolder="$(PublishDir)" Condition="Exists('$(MSBuildProjectDirectory)/web.config')" />
+    <Message Importance="high" Text="[web.config] copiado a $(PublishDir)" />
   </Target>
 
-  <Target Name="TailwindRelease" BeforeTargets="Build" Condition="'$(Configuration)' == 'Release'">
-    <Message Importance="high" Text="[Tailwind] Build producción (minify)..." />
-    <Exec Command="npm run css:Release:build" />
+  <!--
+    Tailwind en Debug: genera css/app.css ANTES de ResolveStaticWebAssetsInputs
+    (el target del SDK que computa los hashes SHA-256 de service-worker-assets.js).
+    Si se cambia el orden o se quita este target, los hashes pueden quedar
+    desincronizados y el Service Worker falla con "SRI's integrity checks failed".
+
+    Para Release (CI) el build de Tailwind lo hace el workflow de GitHub Actions,
+    así que aquí sólo corremos en Debug. El watch de desarrollo continuo se
+    obtiene con `npm run dev:pwa` (concurrently dotnet watch + npm css:watch).
+  -->
+  <Target Name="TailwindDebug" BeforeTargets="ResolveStaticWebAssetsInputs;PrepareForBuild" Condition="'$(Configuration)' == 'Debug'" Inputs="wwwroot/styles/tailwind-styles.css" Outputs="wwwroot/css/app.css">
+    <Message Importance="high" Text="[Tailwind] Build desarrollo..." />
+    <Exec Command="npm run css:Debug:build" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
 </Project>

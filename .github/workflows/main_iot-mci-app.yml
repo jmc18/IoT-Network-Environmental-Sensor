@@ -46,6 +46,14 @@ jobs:
         working-directory: src/IoTNetwork.Pwa
         run: npm ci
 
+      # Regeneramos css/app.css explícitamente antes del publish para garantizar
+      # que el contenido final está en disco ANTES de que el SDK compute los
+      # hashes SHA-256 del service-worker-assets.js. Sin esto, el manifest puede
+      # quedar desincronizado y el Service Worker falla con SRI integrity errors.
+      - name: Build Tailwind CSS (Release)
+        working-directory: src/IoTNetwork.Pwa
+        run: npm run css:Release:build
+
       - name: dotnet publish PWA
         shell: pwsh
         run: |
