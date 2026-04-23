@@ -97,6 +97,89 @@ app.MapWhen(
 app.MapTelemetryRoutes();
 app.MapHub<TelemetryHub>("/hubs/telemetry").RequireCors("Default");
 
+if (app.Environment.IsProduction())
+{
+    app.MapGet("/", (IConfiguration cfg) =>
+    {
+        var title = cfg["OpenApi:Title"] ?? "API Red IoT Escolar";
+        var envLabel = cfg["OpenApi:EnvironmentLabel"] ?? "Producción";
+        var version = cfg["OpenApi:InfoVersion"] ?? "1.0.0";
+        var pwaUrl = cfg["Landing:PwaUrl"] ?? "https://iot-mci-app.azurewebsites.net";
+        var year = DateTime.UtcNow.Year;
+        var utcNow = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm");
+
+        var html = $$"""
+        <!doctype html>
+        <html lang="es">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <meta name="robots" content="noindex" />
+          <title>{{title}}</title>
+          <style>
+            :root { color-scheme: light dark; }
+            * { box-sizing: border-box; }
+            body {
+              margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+              min-height:100vh; display:flex; align-items:center; justify-content:center;
+              background: linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; padding:24px;
+            }
+            .card {
+              background: rgba(255,255,255,0.08);
+              backdrop-filter: blur(12px);
+              border: 1px solid rgba(255,255,255,0.18);
+              border-radius: 20px; padding: 40px 48px; max-width: 640px; width: 100%;
+              box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            }
+            h1 { margin:0 0 8px; font-size: clamp(1.5rem, 4vw, 2rem); }
+            .badge { display:inline-block; padding:4px 10px; border-radius:999px;
+                     background:#10b981; color:#fff; font-size:.8rem; margin-left:8px;
+                     vertical-align: middle; }
+            p { opacity:.9; line-height:1.5; }
+            .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+                    gap:12px; margin-top:24px; }
+            .grid a {
+              text-decoration:none; color:#fff; padding:12px 16px; border-radius:12px;
+              background: rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2);
+              transition: transform .15s ease, background .15s ease;
+              display:flex; align-items:center; gap:10px;
+            }
+            .grid a:hover { background: rgba(255,255,255,0.22); transform: translateY(-2px); }
+            .footer { margin-top:28px; font-size:.75rem; opacity:.6; }
+            code { background:rgba(0,0,0,0.25); padding:2px 6px; border-radius:6px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>{{title}} <span class="badge">online</span></h1>
+            <p>
+              Backend de telemetría IoT para el Instituto Tecnológico de Celaya.<br/>
+              Ambiente: <code>{{envLabel}}</code> · Versión: <code>{{version}}</code>
+            </p>
+            <div class="grid">
+              <a href="/swagger">📖 Documentación (Swagger)</a>
+              <a href="/health">💓 Health</a>
+              <a href="{{pwaUrl}}" target="_blank" rel="noopener">📱 Abrir PWA</a>
+            </div>
+            <div class="footer">
+              © {{year}} ITC — Red IoT escolar.
+              Servidor UTC: {{utcNow}}
+            </div>
+          </div>
+        </body>
+        </html>
+        """;
+
+        return Results.Content(html, "text/html; charset=utf-8");
+    }).ExcludeFromDescription();
+
+    app.MapGet("/health", () => Results.Ok(new
+    {
+        status = "healthy",
+        utc = DateTime.UtcNow
+    })).ExcludeFromDescription();
+}
+
 // En producción las migraciones se aplican manualmente (dotnet ef database update
 // o contra la BD ya aprovisionada). En Development se aplican automáticamente
 // para acelerar el loop. Controlable vía Database:RunMigrationsOnStart.
