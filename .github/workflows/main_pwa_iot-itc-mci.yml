@@ -10,7 +10,7 @@ on:
     paths:
       - 'src/IoTNetwork.Pwa/**'
       - 'src/IoTNetwork.Core/**'
-      - '.github/workflows/main_iot-itc-mci.yml'
+      - '.github/workflows/main_pwa_iot-itc-mci.yml'
   workflow_dispatch:
 
 jobs:
