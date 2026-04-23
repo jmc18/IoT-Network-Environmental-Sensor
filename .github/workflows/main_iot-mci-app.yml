@@ -1,19 +1,29 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Build & deploy de la PWA Blazor WebAssembly al App Service Windows iot-mci-app.
+# En Windows, IIS sirve directamente la salida de `dotnet publish` (incluye web.config
+# con rewrites para rutas SPA y MIME types correctos para .wasm/.dll).
 
-name: Build and deploy ASP.Net Core app to Azure Web App - iot-mci-app
+name: Build and deploy Blazor PWA to Azure Web App - iot-mci-app
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'src/IoTNetwork.Pwa/**'
+      - 'src/IoTNetwork.Core/**'
+      - '.github/workflows/main_iot-mci-app.yml'
   workflow_dispatch:
+
+env:
+  # Opta a Node 24 ya para evitar el warning de deprecación de Node 20
+  # en actions/download-artifact@v4 y azure/login@v2.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -23,31 +33,49 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
+      - name: Set up Node.js (Tailwind CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/IoTNetwork.Pwa/package-lock.json
 
-      - name: dotnet publish
-        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
+      - name: Install Tailwind dependencies
+        working-directory: src/IoTNetwork.Pwa
+        run: npm ci
+
+      - name: dotnet publish PWA
+        shell: pwsh
+        run: |
+          dotnet publish src/IoTNetwork.Pwa/IoTNetwork.Pwa.csproj `
+            -c Release `
+            -o "${{ env.DOTNET_ROOT }}\myapp"
+
+      - name: Flatten Blazor WASM output (wwwroot as site root)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ env.DOTNET_ROOT }}\site" | Out-Null
+          Copy-Item -Path "${{ env.DOTNET_ROOT }}\myapp\wwwroot\*" -Destination "${{ env.DOTNET_ROOT }}\site" -Recurse -Force
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
+          name: pwa-site
+          path: ${{ env.DOTNET_ROOT }}\site
 
   deploy:
     runs-on: windows-latest
     needs: build
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write
+      contents: read
 
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
-          name: .net-app
-      
+          name: pwa-site
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -62,4 +90,3 @@ jobs:
           app-name: 'iot-mci-app'
           slot-name: 'Production'
           package: .
-          
