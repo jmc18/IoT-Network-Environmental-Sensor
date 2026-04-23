@@ -96,7 +96,6 @@ jobs:
           az webapp deploy `
             --resource-group $rg `
             --name iot-mci-app `
-            --slot Production `
             --src-path .\pwa-package.zip `
             --type zip `
             --clean true `
