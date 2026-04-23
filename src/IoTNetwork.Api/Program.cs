@@ -97,24 +97,34 @@ app.MapWhen(
 app.MapTelemetryRoutes();
 app.MapHub<TelemetryHub>("/hubs/telemetry").RequireCors("Default");
 
-try
-{
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<IoTNetworkDbContext>();
-    await db.Database.MigrateAsync();
+// En producción las migraciones se aplican manualmente (dotnet ef database update
+// o contra la BD ya aprovisionada). En Development se aplican automáticamente
+// para acelerar el loop. Controlable vía Database:RunMigrationsOnStart.
+var runMigrationsOnStart = app.Configuration.GetValue(
+    "Database:RunMigrationsOnStart",
+    app.Environment.IsDevelopment());
 
-    if (app.Environment.IsDevelopment()
-        && app.Configuration.GetValue("Seed:EnableDevData", false))
-    {
-        var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
-        await seeder.SeedAsync(CancellationToken.None);
-    }
-}
-catch (Exception ex)
+if (runMigrationsOnStart)
 {
-    var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    logger.LogError(ex, "Database migration failed. Ensure PostgreSQL is reachable and connection string is valid.");
-    throw;
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IoTNetworkDbContext>();
+        await db.Database.MigrateAsync();
+
+        if (app.Environment.IsDevelopment()
+            && app.Configuration.GetValue("Seed:EnableDevData", false))
+        {
+            var seeder = scope.ServiceProvider.GetRequiredService<DevelopmentDataSeeder>();
+            await seeder.SeedAsync(CancellationToken.None);
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+        logger.LogError(ex, "Database migration failed. Ensure PostgreSQL is reachable and connection string is valid.");
+        throw;
+    }
 }
 
 await app.RunAsync();
