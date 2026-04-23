@@ -1,7 +1,8 @@
 # Build & deploy de la API .NET (IoTNetwork.Api) al App Service Windows iot-mci-api.
-# Publicamos framework-dependent para que lo ejecute el AspNetCoreModuleV2 de IIS
-# con el runtime .NET 10 que ya tiene el App Service, generando el web.config
-# con el hosting correspondiente.
+# Publicamos self-contained win-x64: el runtime .NET viaja dentro del paquete,
+# así evitamos depender de la versión de .NET instalada en el stack del App
+# Service (causa típica de HTTP 500.30 cuando el runtime del stack no coincide
+# con el TargetFramework del proyecto).
 
 name: Build and deploy ASP.Net Core app to Azure Web App - iot-mci-api
 
@@ -35,13 +36,14 @@ jobs:
         with:
           dotnet-version: '10.x'
 
-      - name: dotnet publish API (framework-dependent, win-x64)
+      - name: dotnet publish API (self-contained, win-x64)
         shell: pwsh
         run: |
           dotnet publish src/IoTNetwork.Api/IoTNetwork.Api.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained false `
+            --self-contained true `
+            -p:PublishReadyToRun=true `
             -o "${{ env.DOTNET_ROOT }}\myapp"
 
       - name: Upload artifact for deployment job
