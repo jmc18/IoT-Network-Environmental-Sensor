@@ -46,13 +46,20 @@ builder.Services.AddSwaggerGen(options =>
 
 var corsOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                  ?? Array.Empty<string>();
+var allowAzureWebsites = builder.Configuration.GetValue("Cors:AllowAzureWebsites", true);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Default", policy =>
     {
-        if (corsOrigins.Length > 0)
+        if (corsOrigins.Length > 0 || allowAzureWebsites)
         {
-            policy.WithOrigins(corsOrigins)
+            policy.SetIsOriginAllowed(origin =>
+                {
+                    if (corsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
+                    if (!allowAzureWebsites) return false;
+                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
+                    return uri.Host.EndsWith(".azurewebsites.net", StringComparison.OrdinalIgnoreCase);
+                })
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();

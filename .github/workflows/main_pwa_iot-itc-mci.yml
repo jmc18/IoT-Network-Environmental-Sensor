@@ -1,0 +1,81 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy Blazor PWA to Azure Web App - iot-itc-mci
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/IoTNetwork.Pwa/**'
+      - 'src/IoTNetwork.Core/**'
+      - '.github/workflows/main_iot-itc-mci.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Set up Node.js (Tailwind CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/IoTNetwork.Pwa/package-lock.json
+
+      - name: Install Tailwind dependencies
+        working-directory: src/IoTNetwork.Pwa
+        run: npm ci
+
+      - name: dotnet publish PWA
+        run: dotnet publish src/IoTNetwork.Pwa/IoTNetwork.Pwa.csproj -c Release -o ${{ env.DOTNET_ROOT }}/myapp
+
+      - name: Flatten Blazor WASM output (wwwroot as site root)
+        run: |
+          mkdir -p ${{ env.DOTNET_ROOT }}/site
+          cp -r ${{ env.DOTNET_ROOT }}/myapp/wwwroot/. ${{ env.DOTNET_ROOT }}/site/
+
+      - name: Upload artifact for deployment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwa-site
+          path: ${{ env.DOTNET_ROOT }}/site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: pwa-site
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_CAE39BF482194611ACC8E39658F37F16 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B27DDFDB62A347F68FF43CA2FB611EBD }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C730915CBC9245D5906F031AF362F5B8 }}
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'iot-itc-mci'
+          slot-name: 'Production'
+          package: .
