@@ -147,3 +147,4 @@ publish
 
 # Preline UI copiado desde node_modules (npm run copy-preline)
 src/IoTNetwork.Pwa/wwwroot/preline/
+src/IoTNetwork.Api/iot-network-49502-firebase-adminsdk-fbsvc-fe903187fd.json
