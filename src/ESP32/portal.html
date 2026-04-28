@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>IoT Setup</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #0f766e, #0ea5e9);
+      min-height: 100vh;
+      padding: 18px;
+      color: #0f172a;
+    }
+    .card {
+      max-width: 640px;
+      margin: 0 auto;
+      background: rgba(255,255,255,0.94);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 20px 45px rgba(0,0,0,0.22);
+    }
+    .head { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 58px; height: 58px; border-radius: 12px; flex: 0 0 auto; }
+    h1 { margin: 0; font-size: 1.15rem; }
+    .muted { margin: 4px 0 0; color: #475569; font-size: .92rem; line-height: 1.4; }
+    .pill {
+      margin-top: 10px;
+      display: inline-block;
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      color: #0f766e;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: .82rem;
+    }
+    form { margin-top: 14px; }
+    label { display: block; margin: 10px 0 6px; font-weight: 600; font-size: .92rem; }
+    input, select {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      font-size: .95rem;
+      background: #fff;
+      color: #0f172a;
+    }
+    .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      min-height: 42px;
+      padding: 0 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-sec { background: #e2e8f0; color: #0f172a; }
+    .btn-pri { background: #0f766e; color: #fff; }
+    #geoStatus { font-size: .88rem; color: #334155; align-self: center; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="head">
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Smart Cities">
+      <defs>
+        <linearGradient id="mc" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#0d9488"/>
+          <stop offset="1" stop-color="#047857"/>
+        </linearGradient>
+      </defs>
+      <rect width="120" height="120" rx="26" fill="url(#mc)"/>
+      <g fill="#ffffff" opacity="0.92">
+        <path d="M22 34h76v5H22zm0 16h76v5H22zm0 16h52v5H22z"/>
+        <circle cx="28" cy="37" r="2.2"/>
+        <circle cx="48" cy="53" r="2.2"/>
+        <circle cx="36" cy="69" r="2.2"/>
+      </g>
+      <path fill="#ffffff" d="M74 44c0-9.4 7.6-17 17-17s17 7.6 17 17c0 11.5-17 27-17 27S74 55.5 74 44zm17-8a8 8 0 108 .1 8 8 0 00-8-.1z"/>
+    </svg>
+    <div>
+      <h1>IoT Device Setup</h1>
+      <p class="muted">Connect this ESP32 to your home WiFi and backend API.</p>
+      <span class="pill">AP: <b>{{AP_SSID}}</b> | Password: <b>{{AP_PASSWORD}}</b> | URL: <b>http://{{AP_IP}}</b></span>
+    </div>
+  </div>
+  <form method="POST" action="/save">
+    <label>WiFi network</label>
+    <select name="ssid">{{SSID_OPTIONS}}</select>
+    <label>Other SSID (if not listed)</label>
+    <input name="ssid_manual" />
+    <label>WiFi password</label>
+    <input type="password" name="password"/>
+    <label>API base URL (without trailing slash)</label>
+    <input name="api_base" placeholder="https://iotapi.javiermc.tech"/>
+    <label>X-Api-Key</label>
+    <input name="api_key"/>
+    <label>Node ID</label>
+    <input name="node_id" value="esp32-1"/>
+    <input type="hidden" id="latitude" name="latitude" />
+    <input type="hidden" id="longitude" name="longitude" />
+    <div class="actions">
+      <button class="btn-sec" type="button" onclick="captureLocation()">Capture location</button>
+      <button class="btn-pri" type="submit">Save and reboot</button>
+      <span id="geoStatus"></span>
+    </div>
+  </form>
+</div>
+<script>
+function setGeoStatus(msg) {
+  var el = document.getElementById('geoStatus');
+  if (el) el.textContent = msg || '';
+}
+function captureLocation() {
+  if (!navigator.geolocation) {
+    setGeoStatus('Geolocation not supported');
+    return;
+  }
+  setGeoStatus('Getting location...');
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    document.getElementById('latitude').value = String(pos.coords.latitude);
+    document.getElementById('longitude').value = String(pos.coords.longitude);
+    setGeoStatus('Location captured');
+  }, function(err) {
+    setGeoStatus('Location error: ' + (err && err.message ? err.message : 'unknown'));
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+window.addEventListener('load', function() { captureLocation(); });
+</script>
+</body>
+</html>

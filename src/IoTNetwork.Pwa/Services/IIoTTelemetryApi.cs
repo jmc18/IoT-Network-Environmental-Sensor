@@ -14,4 +14,9 @@ public interface IIoTTelemetryApi
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<string>> GetAvailableDatesAsync(string nodeId, CancellationToken cancellationToken = default);
+
+    Task<TelemetryReadingDto?> IngestReadingAsync(
+        string nodeId,
+        TelemetryIngestDto reading,
+        CancellationToken cancellationToken = default);
 }

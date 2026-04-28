@@ -24,6 +24,7 @@ public sealed class PushRegistrationService
     public PushRegistrationService(
         IJSRuntime js,
         string apiBaseUrl,
+        string? apiKey,
         IConfiguration config,
         ILogger<PushRegistrationService>? logger = null)
     {
@@ -31,6 +32,10 @@ public sealed class PushRegistrationService
         _config = config;
         _logger = logger;
         _http = new HttpClient { BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute) };
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            _http.DefaultRequestHeaders.TryAddWithoutValidation("X-Api-Key", apiKey);
+        }
     }
 
     public string? CurrentToken { get; private set; }

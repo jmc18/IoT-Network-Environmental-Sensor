@@ -19,11 +19,20 @@ public sealed class TelemetryHubClient : IAsyncDisposable
     private DateTime _lastCriticalUtc = DateTime.MinValue;
     private CancellationTokenSource? _cooldownCts;
 
-    public TelemetryHubClient(string apiBaseUrl, AlertState alert)
+    public TelemetryHubClient(string apiBaseUrl, AlertState alert, string? apiKey)
     {
         _alert = alert;
         var baseUri = new Uri(apiBaseUrl, UriKind.Absolute);
-        _hubUrl = new Uri(baseUri, "hubs/telemetry").ToString();
+        var hubUri = new Uri(baseUri, "hubs/telemetry");
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            var sep = string.IsNullOrWhiteSpace(hubUri.Query) ? "?" : "&";
+            _hubUrl = $"{hubUri}{sep}access_token={Uri.EscapeDataString(apiKey)}";
+        }
+        else
+        {
+            _hubUrl = hubUri.ToString();
+        }
     }
 
     public event Action<TelemetryReadingDto>? ReadingReceived;

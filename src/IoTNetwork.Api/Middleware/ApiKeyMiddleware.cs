@@ -6,16 +6,20 @@ public sealed class ApiKeyMiddleware(RequestDelegate next, IConfiguration config
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var expected = configuration["Ingest:ApiKey"];
+        var expected = configuration["Security:ApiKey"] ?? configuration["Ingest:ApiKey"];
         if (string.IsNullOrWhiteSpace(expected))
         {
-            logger.LogWarning("Ingest:ApiKey is not configured; rejecting ingest requests.");
+            logger.LogWarning("Security:ApiKey/Ingest:ApiKey is not configured; rejecting secured requests.");
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-            await context.Response.WriteAsync("Ingest API key is not configured on the server.").ConfigureAwait(false);
+            await context.Response.WriteAsync("API key is not configured on the server.").ConfigureAwait(false);
             return;
         }
 
-        if (!context.Request.Headers.TryGetValue(HeaderName, out var provided) || provided != expected)
+        var provided = context.Request.Headers[HeaderName].FirstOrDefault()
+            ?? context.Request.Query["apikey"].FirstOrDefault()
+            ?? context.Request.Query["access_token"].FirstOrDefault();
+
+        if (!string.Equals(provided, expected, StringComparison.Ordinal))
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsync("Invalid or missing API key.").ConfigureAwait(false);

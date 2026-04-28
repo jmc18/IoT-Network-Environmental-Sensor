@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace IoTNetwork.Infrastructure.Notifications;
 
 /// <summary>
-/// Evalúa bandas "High" para Temperatura/CO₂/Ruido y envía push vía FCM a los
+/// Evalúa bandas "High" para Temperatura/Humedad/CO₂/Ruido y envía push vía FCM a los
 /// tokens registrados, con rate-limit de 10 minutos por (nodo, métrica).
 /// </summary>
 public sealed class FirebasePushNotificationService(
@@ -86,11 +86,15 @@ public sealed class FirebasePushNotificationService(
 
     private static List<(string Metric, string Display, double Value, string Unit)> BuildCriticalList(TelemetryReading r)
     {
-        var list = new List<(string, string, double, string)>(3);
+        var list = new List<(string, string, double, string)>(4);
 
         if (r.Temperature is { } t && t > 26)
         {
             list.Add(("temperature", "Temperatura", t, " °C"));
+        }
+        if (r.Humidity is { } h && h > 70)
+        {
+            list.Add(("humidity", "Humedad", h, " %"));
         }
         if (r.Co2 is { } c && c > 1200)
         {

@@ -1,0 +1,33 @@
+{
+  "wifi": {
+    "ssid": "TU_WIFI",
+    "password": "TU_CLAVE"
+  },
+  "device": {
+    "node_id": "esp32-aula-1",
+    "api_base": "https://iotapi.javiermc.tech",
+    "api_key": "iotnetwork-generic-2026-shared-key"
+  },
+  "location": {
+    "latitude": null,
+    "longitude": null
+  },
+  "pins": {
+    "dht": 4,
+    "noise_adc": 34,
+    "co2_adc": 35
+  },
+  "interval_sec": 10,
+  "sampling_minutes": {
+    "co2": 2,
+    "noise": 5,
+    "temp_humidity": 4
+  },
+  "sensor": {
+    "noise_adc_silence": 500,
+    "noise_adc_loud": 3500,
+    "noise_db_silence": 35,
+    "noise_db_loud": 85,
+    "mq135_r0": 10.0
+  }
+}

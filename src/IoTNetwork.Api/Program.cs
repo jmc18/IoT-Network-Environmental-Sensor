@@ -46,29 +46,58 @@ builder.Services.AddSwaggerGen(options =>
 
 var corsOrigins = builder.Configuration["Cors:AllowedOrigins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                  ?? Array.Empty<string>();
+var allowPrivateNetworks = builder.Configuration.GetValue("Cors:AllowPrivateNetworks", true);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Default", policy =>
     {
-        if (corsOrigins.Length > 0)
+        static bool IsPrivateOrLocalHost(string host)
         {
-            policy.SetIsOriginAllowed(origin =>
-                {
-                    if (corsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase)) return true;
-                    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)) return false;
-                    return uri.Host.EndsWith(".javiermc.tech", StringComparison.OrdinalIgnoreCase);
-                })
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
+            if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!System.Net.IPAddress.TryParse(host, out var ip))
+            {
+                return false;
+            }
+
+            var bytes = ip.GetAddressBytes();
+            if (bytes.Length == 4)
+            {
+                return bytes[0] == 10
+                       || (bytes[0] == 172 && bytes[1] >= 16 && bytes[1] <= 31)
+                       || (bytes[0] == 192 && bytes[1] == 168)
+                       || bytes[0] == 127;
+            }
+
+            return ip.IsIPv6LinkLocal || ip.IsIPv6SiteLocal || ip.Equals(System.Net.IPAddress.IPv6Loopback);
         }
-        else
+
+        policy.SetIsOriginAllowed(origin =>
         {
-            policy.SetIsOriginAllowed(_ => true)
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+            {
+                return false;
+            }
+
+            if (corsOrigins.Length == 0)
+            {
+                return true;
+            }
+
+            if (corsOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return allowPrivateNetworks && IsPrivateOrLocalHost(uri.Host);
+        })
+        .AllowAnyHeader()
+        .AllowAnyMethod();
     });
 });
 
@@ -89,7 +118,17 @@ app.UseSwaggerUI(options =>
 app.UseCors("Default");
 
 app.MapWhen(
-    ctx => ctx.Request.Path.Value?.StartsWith("/api/ingest", StringComparison.OrdinalIgnoreCase) == true,
+    ctx =>
+    {
+        var path = ctx.Request.Path.Value;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        return path.StartsWith("/api", StringComparison.OrdinalIgnoreCase)
+               || path.StartsWith("/hubs/telemetry", StringComparison.OrdinalIgnoreCase);
+    },
     branch => branch.UseMiddleware<ApiKeyMiddleware>());
 
 app.MapTelemetryRoutes();
