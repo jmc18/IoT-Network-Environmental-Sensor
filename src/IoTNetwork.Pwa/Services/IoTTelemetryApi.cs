@@ -31,4 +31,19 @@ public sealed class IoTTelemetryApi(HttpClient http) : IIoTTelemetryApi
         var res = await http.GetFromJsonAsync<AvailableDatesDto>(url, cancellationToken).ConfigureAwait(false);
         return res?.Dates ?? [];
     }
+
+    public async Task<TelemetryReadingDto?> IngestReadingAsync(
+        string nodeId,
+        TelemetryIngestDto reading,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"/api/ingest/nodes/{Uri.EscapeDataString(nodeId)}/readings";
+        using var response = await http.PostAsJsonAsync(url, reading, cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<TelemetryReadingDto>(cancellationToken).ConfigureAwait(false);
+    }
 }

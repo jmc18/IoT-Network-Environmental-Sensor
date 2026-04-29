@@ -153,3 +153,4 @@ src/IoTNetwork.Api/iot-network-49502-firebase-adminsdk-fbsvc-fe903187fd.json
 src/ESP32/config.json
 src/ESP32/**/__pycache__/
 src/ESP32/**/*.pyc
+.tmp

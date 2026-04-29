@@ -35,8 +35,8 @@ public static class TelemetryLevels
     {
         if (ppm is null) return MetricBand.Unknown;
         var v = ppm.Value;
-        if (v < 800) return MetricBand.Low;
-        if (v <= 1200) return MetricBand.Medium;
+        if (v <= 800) return MetricBand.Low;
+        if (v <= 1000) return MetricBand.Medium;
         return MetricBand.High;
     }
 
@@ -67,9 +67,9 @@ public static class TelemetryLevels
             ("humidity", MetricBand.Low) => "Humedad relativa baja (menos de 35 %); puede causar sequedad ambiental.",
             ("humidity", MetricBand.Medium) => "Humedad relativa en rango moderado (aprox. 35 a 65 %).",
             ("humidity", MetricBand.High) => "Humedad relativa alta (más de 65 %); puede favorecer condensación o malestar.",
-            ("co2", MetricBand.Low) => "Concentración de CO₂ baja (menos de 800 ppm); renovación de aire adecuada.",
-            ("co2", MetricBand.Medium) => "CO₂ en rango intermedio (aprox. 800 a 1200 ppm); conviene ventilar si se mantiene mucho tiempo.",
-            ("co2", MetricBand.High) => "CO₂ elevado (más de 1200 ppm); se recomienda ventilar el espacio.",
+            ("co2", MetricBand.Low) => "CO₂ en rango bueno para interiores (≤ 800 ppm). El aire exterior limpio suele estar cerca de 400-600 ppm.",
+            ("co2", MetricBand.Medium) => "CO₂ entre 800 y 1000 ppm; ventilación aceptable, conviene monitorear.",
+            ("co2", MetricBand.High) => "CO₂ por encima de 1000 ppm; mala ventilación, se recomienda airear el espacio.",
             ("noise", MetricBand.Low) => "Nivel sonoro bajo (menos de 40 dB); ambiente silencioso.",
             ("noise", MetricBand.Medium) => "Nivel sonoro moderado (aprox. 40 a 60 dB); típico de aula con actividad.",
             ("noise", MetricBand.High) => "Nivel sonoro alto (más de 60 dB); puede afectar concentración.",

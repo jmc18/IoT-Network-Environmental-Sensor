@@ -11,7 +11,9 @@
             <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Lecturas por nodo</p>
                 <h1 class="mt-1 break-all text-xl font-bold tracking-tight text-slate-900 dark:text-white md:text-2xl">@DisplayNodeId</h1>
-                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Toca un indicador para ver el detalle de esa muestra.</p>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                    Gráficas calculadas con lecturas del día actual (UTC). Toca un indicador para ver detalle.
+                </p>
             </div>
             <div class="flex shrink-0 flex-col gap-2 sm:items-end">
                 <a href="map" class="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 active:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700">Ir al mapa</a>
@@ -134,20 +136,30 @@
         try
         {
             var id = DisplayNodeId;
-            var to = DateTime.UtcNow;
-            var from = to.AddDays(-30);
-            var items = await Api.GetReadingsAsync(id, from, to, 200);
+            // Day window based on device local timezone, converted to UTC for API query.
+            var localNow = DateTimeOffset.Now;
+            var dayStartLocal = new DateTimeOffset(
+                localNow.Year, localNow.Month, localNow.Day, 0, 0, 0, localNow.Offset);
+            var fromUtc = dayStartLocal.UtcDateTime;
+            var toUtc = localNow.UtcDateTime;
+
+            var items = await Api.GetReadingsAsync(id, fromUtc, toUtc, 1000);
+            if (items.Count == 0)
+            {
+                // Fallback: keep charts alive with recent history when day has no data.
+                items = await Api.GetReadingsAsync(id, toUtc.AddDays(-30), toUtc, 1000);
+            }
             _readings.Clear();
             _readings.AddRange(items.OrderByDescending(x => x.TimestampUtc));
 
-            var lastSixty = _readings
+            var chartSeries = _readings
                 .OrderBy(x => x.TimestampUtc)
-                .TakeLast(60)
+                .TakeLast(288)
                 .ToList();
-            _chartTemp?.SeedHistory(lastSixty);
-            _chartHum?.SeedHistory(lastSixty);
-            _chartCo2?.SeedHistory(lastSixty);
-            _chartNoise?.SeedHistory(lastSixty);
+            _chartTemp?.SeedHistory(chartSeries);
+            _chartHum?.SeedHistory(chartSeries);
+            _chartCo2?.SeedHistory(chartSeries);
+            _chartNoise?.SeedHistory(chartSeries);
 
             await SubscribeHubAsync(id);
         }

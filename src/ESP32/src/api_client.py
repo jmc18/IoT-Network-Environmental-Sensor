@@ -20,10 +20,17 @@ class ApiClient:
         url = "{}/api/ingest/nodes/{}/readings".format(self.base_url, node_id)
         headers = {"X-Api-Key": self.api_key}
         try:
-            code, _ = http_client.post_json(url, payload, headers=headers, timeout_s=30)
+            code, body = http_client.post_json(url, payload, headers=headers, timeout_s=30)
             if code in (200, 201):
                 return True
             print("[api] HTTP", code)
+            if code == 401 and body:
+                try:
+                    msg = bytes(body[:160]).decode("utf-8", "replace")
+                    print("[api] respuesta:", msg)
+                except Exception:
+                    pass
+                print("[api] revisa que Security:ApiKey en el servidor coincida con device.api_key en config / defaults")
             return False
         except Exception as ex:
             print("[api] error:", ex)

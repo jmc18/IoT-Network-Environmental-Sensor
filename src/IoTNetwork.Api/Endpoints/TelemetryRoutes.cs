@@ -6,6 +6,7 @@ using IoTNetwork.Core.Application.Dtos;
 using IoTNetwork.Core.Domain.Entities;
 using Mapster;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 
 namespace IoTNetwork.Api.Endpoints;
 
@@ -73,8 +74,10 @@ public static class TelemetryRoutes
             IUnitOfWork uow,
             IHubContext<TelemetryHub> hub,
             ICriticalTelemetryNotifier notifier,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
+            var logger = loggerFactory.CreateLogger("TelemetryIngest");
             if (string.IsNullOrWhiteSpace(nodeId))
             {
                 return Results.BadRequest("nodeId is required.");
@@ -85,32 +88,62 @@ public static class TelemetryRoutes
                 return Results.BadRequest(err);
             }
 
-            var entity = body.Adapt<TelemetryReading>();
-            entity.Id = Guid.NewGuid();
-            entity.NodeId = nodeId.Trim();
-            entity.TimestampUtc = (body.TimestampUtc ?? DateTime.UtcNow).ToUniversalTime();
+            var traceId = Guid.NewGuid().ToString("n")[..8];
+            var trimmedNodeId = nodeId.Trim();
 
-            var day = DateOnly.FromDateTime(entity.TimestampUtc);
-            var index = new NodeDataDay
+            logger.LogInformation(
+                "Ingest start {TraceId} Node={NodeId} Temp={Temp} Hum={Hum} CO2={Co2} Noise={Noise}",
+                traceId,
+                trimmedNodeId,
+                body.Temperature,
+                body.Humidity,
+                body.Co2,
+                body.NoiseLevel);
+
+            try
             {
-                NodeId = entity.NodeId,
-                DayUtc = day,
-                UpdatedAtUtc = DateTime.UtcNow,
-            };
+                var entity = body.Adapt<TelemetryReading>();
+                entity.Id = Guid.NewGuid();
+                entity.NodeId = trimmedNodeId;
+                entity.TimestampUtc = (body.TimestampUtc ?? DateTime.UtcNow).ToUniversalTime();
 
-            await uow.TelemetryReadings.AddAsync(entity, ct).ConfigureAwait(false);
-            await uow.NodeDataDays.UpsertDayAsync(index, ct).ConfigureAwait(false);
-            await uow.SaveChangesAsync(ct).ConfigureAwait(false);
+                var day = DateOnly.FromDateTime(entity.TimestampUtc);
+                var index = new NodeDataDay
+                {
+                    NodeId = entity.NodeId,
+                    DayUtc = day,
+                    UpdatedAtUtc = DateTime.UtcNow,
+                };
 
-            var dto = entity.Adapt<TelemetryReadingDto>();
+                await uow.TelemetryReadings.AddAsync(entity, ct).ConfigureAwait(false);
+                await uow.NodeDataDays.UpsertDayAsync(index, ct).ConfigureAwait(false);
+                await uow.SaveChangesAsync(ct).ConfigureAwait(false);
 
-            await hub.Clients.Group(TelemetryHub.GroupName(entity.NodeId))
-                .SendAsync("reading", dto, ct).ConfigureAwait(false);
-            await hub.Clients.All.SendAsync("readingAny", dto, ct).ConfigureAwait(false);
+                var dto = entity.Adapt<TelemetryReadingDto>();
 
-            _ = notifier.NotifyIfCriticalAsync(entity, CancellationToken.None);
+                await hub.Clients.Group(TelemetryHub.GroupName(entity.NodeId))
+                    .SendAsync("reading", dto, ct).ConfigureAwait(false);
+                await hub.Clients.All.SendAsync("readingAny", dto, ct).ConfigureAwait(false);
 
-            return Results.Created($"/api/nodes/{Uri.EscapeDataString(entity.NodeId)}/readings", dto);
+                _ = notifier.NotifyIfCriticalAsync(entity, CancellationToken.None);
+
+                logger.LogInformation(
+                    "Ingest OK {TraceId} Node={NodeId} Id={ReadingId} Timestamp={Ts}",
+                    traceId,
+                    entity.NodeId,
+                    entity.Id,
+                    entity.TimestampUtc);
+
+                return Results.Created($"/api/nodes/{Uri.EscapeDataString(entity.NodeId)}/readings", dto);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Ingest FAILED {TraceId} Node={NodeId}", traceId, trimmedNodeId);
+                return Results.Problem(
+                    title: "Ingest failed",
+                    detail: $"TraceId: {traceId}",
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
         });
 
         api.MapPost("/push/register", async (

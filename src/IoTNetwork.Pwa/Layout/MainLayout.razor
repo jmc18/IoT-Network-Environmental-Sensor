@@ -7,13 +7,6 @@
 @using Microsoft.JSInterop
 
 <div class="@RootClasses">
-    @* Notificación "Nueva versión disponible" — aparece cuando el Service Worker
-       detecta un build nuevo. Provista por Toolbelt.Blazor.PWA.Updater.
-       Sólo se muestra en Production por defecto (parámetro EnvironmentsForWork). *@
-    <PWAUpdater Text="Hay una nueva versión disponible de la app."
-                ButtonCaption="Actualizar ahora"
-                Align="PWAUpdater.Aligns.Top" />
-
     @if (Alerts.Critical)
     {
         <div role="alert" class="sticky top-0 z-40 border-b border-rose-600/40 bg-rose-600 px-4 py-2 text-center text-sm font-semibold text-white shadow-md">

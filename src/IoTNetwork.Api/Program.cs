@@ -10,8 +10,21 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((ctx, _, cfg) =>
+{
+    cfg.ReadFrom.Configuration(ctx.Configuration)
+       .Enrich.FromLogContext()
+       .WriteTo.Console()
+       .WriteTo.File(
+            path: "logs/iotnetwork-api-.log",
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 14,
+            shared: true);
+});
 
 MappingConfig.RegisterMappings();
 builder.Services.AddMapster();
@@ -115,9 +128,11 @@ app.UseSwaggerUI(options =>
         : $"{openApiTitle} ({envLabel}) — Swagger";
 });
 
+app.UseSerilogRequestLogging();
+
 app.UseCors("Default");
 
-app.MapWhen(
+app.UseWhen(
     ctx =>
     {
         var path = ctx.Request.Path.Value;
@@ -247,4 +262,11 @@ if (runMigrationsOnStart)
     }
 }
 
-await app.RunAsync();
+try
+{
+    await app.RunAsync();
+}
+finally
+{
+    Log.CloseAndFlush();
+}

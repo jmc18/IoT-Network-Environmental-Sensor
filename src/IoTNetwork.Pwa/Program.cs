@@ -5,13 +5,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using IoTNetwork.Pwa;
 using IoTNetwork.Pwa.Services;
-using Toolbelt.Blazor.Extensions.DependencyInjection;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
-
-builder.Services.AddPWAUpdater();
 
 // ApiSettings (estilo A_PG) con compatibilidad Api:BaseUrl
 var apiBase = builder.Configuration["ApiSettings:BaseUrl"]

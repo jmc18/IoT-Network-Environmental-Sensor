@@ -1,5 +1,7 @@
 """Persistencia de WiFi + API en config.json (flash)."""
 
+import gc
+import time
 import ujson
 import os
 
@@ -10,7 +12,7 @@ def default_config():
     return {
         "wifi": {"ssid": "", "password": ""},
         "device": {
-            "node_id": "esp32-1",
+            "node_id": "",
             "api_base": "https://iotapi.javiermc.tech",
             "api_key": "iotnetwork-generic-2026-shared-key",
         },
@@ -20,6 +22,9 @@ def default_config():
         },
         "pins": {"dht": 4, "noise_adc": 34, "co2_adc": 35},
         "interval_sec": 10,
+        "local_only": False,
+        "local_sample_sec": 10,
+        "portal_force": False,
         "sampling_minutes": {
             "co2": 2,
             "noise": 5,
@@ -31,6 +36,12 @@ def default_config():
             "noise_db_silence": 35,
             "noise_db_loud": 85,
             "mq135_r0": 10.0,
+            "mq135_clean_air_adc": 3000,
+            "mq135_ppm_per_adc": 1.6,
+            "mq135_warmup_reads": 8,
+            "co2_outdoor_ppm": 420,
+            "co2_min_ppm": 350,
+            "co2_max_ppm": 5000,
         },
     }
 
@@ -51,18 +62,40 @@ def load(path=DEFAULT_PATH):
                 base[k] = merged
             elif k in data:
                 base[k] = data[k]
+    # config.json antiguo podía dejar api_key/api_base vacíos y el API devuelve 401
+    ddef = default_config().get("device") or {}
+    dev = base.get("device") or {}
+    if not (dev.get("api_base") or "").strip():
+        dev["api_base"] = ddef.get("api_base", "")
+    if not (dev.get("api_key") or "").strip():
+        dev["api_key"] = ddef.get("api_key", "")
+    base["device"] = dev
     return base
 
 
 def save(cfg, path=DEFAULT_PATH):
-    tmp = path + ".tmp"
-    with open(tmp, "w") as f:
-        ujson.dump(cfg, f)
-    try:
-        os.remove(path)
-    except OSError:
-        pass
-    os.rename(tmp, path)
+    """Escribe en flash; reintenta por interferencias WiFi/stack en algunos firmwares."""
+    last_err = None
+    for attempt in range(4):
+        try:
+            tmp = path + ".tmp"
+            with open(tmp, "w") as f:
+                ujson.dump(cfg, f)
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            os.rename(tmp, path)
+            return
+        except OSError as ex:
+            last_err = ex
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            time.sleep_ms(40 + attempt * 80)
+            gc.collect()
+    raise last_err
 
 
 def wifi_configured(cfg):

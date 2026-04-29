@@ -23,7 +23,7 @@
     [Parameter, EditorRequired] public string Unit { get; set; } = "";
     [Parameter, EditorRequired] public TelemetryMetricKind Kind { get; set; }
 
-    private const int MaxPoints = 60;
+    private const int MaxPoints = 288;
     private readonly List<double[]> _series = [];
     private readonly string ElementId = $"chart-{Guid.NewGuid():N}";
     private double? _lastValue;

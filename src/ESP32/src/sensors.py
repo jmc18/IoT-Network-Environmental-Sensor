@@ -26,6 +26,7 @@ class SensorReader:
 
         self._noise_ema = None
         self._co2_ema = None
+        self._co2_reads = 0
 
     def read_dht(self):
         self._dht.measure()
@@ -35,6 +36,12 @@ class SensorReader:
         if prev is None:
             return value
         return alpha * value + (1.0 - alpha) * prev
+
+    def read_noise_adc_raw(self):
+        return int(self._adc_noise.read())
+
+    def read_co2_adc_raw(self):
+        return int(self._adc_co2.read())
 
     def read_noise_db(self):
         raw = self._adc_noise.read()
@@ -56,20 +63,40 @@ class SensorReader:
 
     def read_co2_ppm_est(self):
         """
-        ADC-based heuristic for MQ-135 (typical 3.3V ESP32 wiring).
-        Tune mq135_r0 and curve after outdoor clean-air calibration (~400 ppm).
+        MQ-135 estimated CO2 in ppm (heuristic, not NDIR):
+        - Calibrate in outdoor clean air (~400-420 ppm) using mq135_clean_air_adc.
+        - Place sensor away from direct breathing to avoid spikes.
+        - First readings are stabilized by warm-up damping.
         """
         raw = float(self._adc_co2.read())
-        r0 = float(self._sensor_cfg.get("mq135_r0", 10.0))
+        sc = self._sensor_cfg
+        clean_adc = float(sc.get("mq135_clean_air_adc", 3000))
+        clean_ppm = float(sc.get("co2_outdoor_ppm", 420))
+        ppm_per_adc = float(sc.get("mq135_ppm_per_adc", 1.6))
+        ppm_min = float(sc.get("co2_min_ppm", 350))
+        ppm_max = float(sc.get("co2_max_ppm", 5000))
+        warmup_reads = int(sc.get("mq135_warmup_reads", 8))
+
         if raw < 1.0:
             raw = 1.0
-        ratio = (4095.0 - raw) / raw
-        ppm = 400.0 + ratio * (120.0 / max(r0, 0.1))
-        if ppm < 300.0:
-            ppm = 300.0
-        if ppm > 10000.0:
-            ppm = 10000.0
-        self._co2_ema = self._ema(self._co2_ema, ppm)
+
+        self._co2_reads += 1
+        delta_adc = clean_adc - raw
+        ppm = clean_ppm + (delta_adc * ppm_per_adc)
+
+        # Warm-up stabilization: keep first samples closer to clean-air baseline.
+        if self._co2_reads <= warmup_reads:
+            ppm = (ppm + (2.0 * clean_ppm)) / 3.0
+            alpha = 0.18
+        else:
+            alpha = 0.35
+
+        if ppm < ppm_min:
+            ppm = ppm_min
+        if ppm > ppm_max:
+            ppm = ppm_max
+
+        self._co2_ema = self._ema(self._co2_ema, ppm, alpha=alpha)
         return round(self._co2_ema, 1)
 
     def read_all(self):
